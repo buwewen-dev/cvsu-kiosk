@@ -14,7 +14,15 @@ if (USE_PG) {
     ssl: { rejectUnauthorized: false }
   });
 } else {
-  const Database = require('better-sqlite3');
+  let Database;
+  try {
+    Database = require('better-sqlite3');
+  } catch (e) {
+    console.error('[db] No DATABASE_URL set and better-sqlite3 is not installed.');
+    console.error('[db] For local dev: run "npm install better-sqlite3"');
+    console.error('[db] For production: set DATABASE_URL to a PostgreSQL connection string.');
+    throw e;
+  }
   const dataDir = path.join(__dirname, 'data');
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
   db = new Database(path.join(dataDir, 'kiosk.db'));
