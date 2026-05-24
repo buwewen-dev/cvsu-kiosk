@@ -32,6 +32,11 @@
       Requests
       <span class="sb-badge" id="badgePending">0</span>
     </button>
+    <button class="sb-link" id="sbPayments" data-tab="payments" onclick="showTab('payments')" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/></svg>
+      Pending Payments
+      <span class="sb-badge" id="badgePayments">0</span>
+    </button>
     <button class="sb-link" data-tab="inquiries" onclick="showTab('inquiries')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
       Inquiries
@@ -100,6 +105,19 @@
       <button class="filter-chip" data-filter="released" onclick="filterRequests('released')">Released</button>
       <button class="filter-chip" data-filter="cancelled" onclick="filterRequests('cancelled')">Cancelled</button>
     </div>
+    <div class="filters filters--secondary">
+      <input type="text" id="reqSearch" class="filter-search" placeholder="Search by reference, name, or student ID..." oninput="loadRequests()">
+      <select id="reqPaymentFilter" class="filter-select" onchange="loadRequests()">
+        <option value="all">All Payment Status</option>
+        <option value="paid">Paid only</option>
+        <option value="unpaid">Unpaid only</option>
+      </select>
+      <select id="reqArchivedFilter" class="filter-select" onchange="loadRequests()">
+        <option value="no">Active only</option>
+        <option value="yes">Archived only</option>
+        <option value="all">Active + Archived</option>
+      </select>
+    </div>
 
     <div class="card">
       <table class="data-table">
@@ -119,6 +137,34 @@
         <tbody id="requestsTable"></tbody>
       </table>
       <div class="empty" id="requestsEmpty" hidden>No requests match the selected filter.</div>
+    </div>
+  </section>
+
+  <!-- PAYMENTS TAB (Cashier only) -->
+  <section class="tab" data-tab="payments">
+    <header class="page-head">
+      <div>
+        <h1>Pending Cash Payments</h1>
+        <p class="page-sub">All unpaid cash requests from every office. Mark them paid here when the student pays at the Cashier window.</p>
+      </div>
+      <button class="btn-secondary" onclick="loadPayments()">Refresh</button>
+    </header>
+    <div class="card">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Reference</th>
+            <th>Office</th>
+            <th>Student</th>
+            <th>Document</th>
+            <th>Fee</th>
+            <th>Submitted</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="paymentsTable"></tbody>
+      </table>
+      <div class="empty" id="paymentsEmpty" hidden>No pending cash payments. Good job staying on top of it.</div>
     </div>
   </section>
 

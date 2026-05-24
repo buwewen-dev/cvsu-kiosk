@@ -926,6 +926,34 @@ html, body {
   gap: 4px;
 }
 
+/* ============ EXTRA FILTERS ============ */
+.filters--secondary { margin-top: 12px; gap: 10px; }
+.filter-search {
+  flex: 1; min-width: 260px;
+  padding: 9px 14px;
+  background: white;
+  border: 1px solid var(--c-line);
+  border-radius: 100px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--c-text);
+}
+.filter-search:focus {
+  outline: none;
+  border-color: var(--c-green);
+}
+.filter-select {
+  padding: 9px 14px;
+  background: white;
+  border: 1px solid var(--c-line);
+  border-radius: 100px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--c-text);
+  cursor: pointer;
+}
+.filter-select:focus { outline: none; border-color: var(--c-green); }
+
 /* ============ INQUIRIES ============ */
 .inquiry-list { display: flex; flex-direction: column; gap: 10px; }
 .inquiry-item {

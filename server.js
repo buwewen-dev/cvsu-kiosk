@@ -278,7 +278,7 @@ function addBusinessDays(date, days) {
 
 // ============ ADMIN: requests ============
 app.get('/api/admin/requests', requireAdmin, async (req, res) => {
-  const { status, office_id } = req.query;
+  const { status, office_id, archived, payment, search } = req.query;
   let sql = 'SELECT * FROM requests WHERE 1=1';
   const params = [];
   if (req.user.role === 'office_admin') {
@@ -292,22 +292,56 @@ app.get('/api/admin/requests', requireAdmin, async (req, res) => {
     sql += ' AND status = ?';
     params.push(status);
   }
+  // archived: 'yes' shows only archived, 'no' (default) shows only active, 'all' shows both
+  if (archived === 'yes') {
+    sql += ' AND archived = 1';
+  } else if (archived === 'all') {
+    // no filter
+  } else {
+    sql += ' AND (archived = 0 OR archived IS NULL)';
+  }
+  if (payment === 'paid') sql += ' AND paid = 1';
+  else if (payment === 'unpaid') sql += ' AND paid = 0';
+  if (search) {
+    sql += ' AND (ref_number LIKE ? OR student_name LIKE ? OR student_id LIKE ?)';
+    const s = `%${search}%`;
+    params.push(s, s, s);
+  }
   sql += ' ORDER BY created_at DESC';
   const rows = await query(sql, params);
-  // Attach items for each request
   for (const r of rows) {
     r.items = await query('SELECT * FROM request_items WHERE request_id = ?', [r.id]);
   }
   res.json({ requests: rows });
 });
 
+// Cashier-only: pending payments across all offices (cash method, unpaid, not archived)
+app.get('/api/admin/payments', requireAdmin, async (req, res) => {
+  if (!(req.user.role === 'system_admin' || (req.user.role === 'office_admin' && req.user.office_id === 'cashier'))) {
+    return res.status(403).json({ error: 'Only Cashier or System Admin can access payments queue' });
+  }
+  const rows = await query(
+    `SELECT * FROM requests WHERE paid = 0 AND payment_method = ? AND (archived = 0 OR archived IS NULL) AND status != ? ORDER BY created_at DESC`,
+    ['cash', 'cancelled']
+  );
+  for (const r of rows) {
+    r.items = await query('SELECT * FROM request_items WHERE request_id = ?', [r.id]);
+  }
+  res.json({ payments: rows });
+});
+
 app.patch('/api/admin/requests/:id', requireAdmin, async (req, res) => {
   const r = await get('SELECT * FROM requests WHERE id = ?', [req.params.id]);
   if (!r) return res.status(404).json({ error: 'Not found' });
+  const { status, paid, notes, archived } = req.body;
+  const isCashier = req.user.role === 'office_admin' && req.user.office_id === 'cashier';
+  const onlyPaymentChange = (typeof paid !== 'undefined') && !status && typeof notes === 'undefined' && typeof archived === 'undefined';
+  // Office admin: can fully manage their own office requests, BUT cashier can also mark paid on other offices
   if (req.user.role === 'office_admin' && r.office_id !== req.user.office_id) {
-    return res.status(403).json({ error: 'Forbidden' });
+    if (!(isCashier && onlyPaymentChange)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
   }
-  const { status, paid, notes } = req.body;
   const allowed = ['pending', 'processing', 'ready', 'released', 'cancelled'];
   if (status && !allowed.includes(status)) return res.status(400).json({ error: 'Invalid status' });
 
@@ -316,6 +350,7 @@ app.patch('/api/admin/requests/:id', requireAdmin, async (req, res) => {
   if (status) { updates.push('status = ?'); params.push(status); }
   if (typeof paid !== 'undefined') { updates.push('paid = ?'); params.push(paid ? 1 : 0); }
   if (typeof notes !== 'undefined') { updates.push('notes = ?'); params.push(notes); }
+  if (typeof archived !== 'undefined') { updates.push('archived = ?'); params.push(archived ? 1 : 0); }
   if (!updates.length) return res.json({ request: r });
 
   // Always update timestamp

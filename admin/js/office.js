@@ -25,6 +25,11 @@ async function loadMe() {
     document.getElementById('userRole').textContent = officeLabel(user.office_id);
     document.getElementById('userAvatar').textContent = (user.name || 'U')[0].toUpperCase();
     document.getElementById('dashSub').textContent = `${officeLabel(user.office_id)} . Today at a glance`;
+    // Show the Payments tab only for Cashier
+    if (user.office_id === 'cashier') {
+      const sbPay = document.getElementById('sbPayments');
+      if (sbPay) sbPay.hidden = false;
+    }
   } catch {
     window.location.href = '/admin';
   }
@@ -44,6 +49,7 @@ function showTab(name) {
   document.querySelectorAll('.sb-link').forEach(l => l.classList.toggle('is-active', l.dataset.tab === name));
   if (name === 'dashboard') loadDashboard();
   if (name === 'requests') loadRequests();
+  if (name === 'payments') loadPayments();
   if (name === 'inquiries') loadInquiries();
   if (name === 'announcements') loadAnnouncements();
   if (name === 'faqs') loadFaqs();
@@ -198,6 +204,18 @@ async function loadDashboard() {
       }
     } catch {}
 
+    // Refresh payments badge for Cashier
+    if (CURRENT_USER && CURRENT_USER.office_id === 'cashier') {
+      try {
+        const { payments } = await api('/api/admin/payments');
+        const badge = document.getElementById('badgePayments');
+        if (badge) {
+          badge.textContent = payments.length;
+          badge.style.display = payments.length ? '' : 'none';
+        }
+      } catch {}
+    }
+
     const { requests } = await api('/api/admin/requests');
     document.getElementById('recentRequests').innerHTML = requests.slice(0, 5).map(r => `
       <div class="request-row">
@@ -215,9 +233,58 @@ async function loadDashboard() {
 // ============ REQUESTS ============
 async function loadRequests() {
   try {
-    const { requests } = await api('/api/admin/requests');
+    const q = new URLSearchParams();
+    const search = document.getElementById('reqSearch')?.value.trim();
+    const payment = document.getElementById('reqPaymentFilter')?.value;
+    const archived = document.getElementById('reqArchivedFilter')?.value;
+    if (search) q.set('search', search);
+    if (payment && payment !== 'all') q.set('payment', payment);
+    if (archived) q.set('archived', archived);
+    const url = '/api/admin/requests' + (q.toString() ? '?' + q.toString() : '');
+    const { requests } = await api(url);
     STATE.requests = requests;
     renderRequestsTable();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// ============ PAYMENTS (Cashier only) ============
+async function loadPayments() {
+  try {
+    const { payments } = await api('/api/admin/payments');
+    const tbody = document.getElementById('paymentsTable');
+    const empty = document.getElementById('paymentsEmpty');
+    if (!payments.length) { tbody.innerHTML = ''; empty.hidden = false; }
+    else {
+      empty.hidden = true;
+      tbody.innerHTML = payments.map(r => `
+        <tr>
+          <td><span class="ref-mono">${r.ref_number}</span></td>
+          <td><span class="pill pill--office">${escapeHtml(officeLabel(r.office_id))}</span></td>
+          <td>
+            <div class="student-name">${escapeHtml(r.student_name)}</div>
+            ${r.student_id ? `<div class="student-id">${r.student_id}</div>` : ''}
+          </td>
+          <td>${escapeHtml(r.document_name)}</td>
+          <td><span class="fee">PHP ${r.total_fee || r.fee}</span></td>
+          <td>${formatDate(r.created_at)}</td>
+          <td><button class="btn-primary" onclick="markPaidFromPayments(${r.id})">Mark as Paid</button></td>
+        </tr>
+      `).join('');
+    }
+    // Update payments badge
+    const badge = document.getElementById('badgePayments');
+    if (badge) {
+      badge.textContent = payments.length;
+      badge.style.display = payments.length ? '' : 'none';
+    }
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function markPaidFromPayments(id) {
+  try {
+    await api(`/api/admin/requests/${id}`, { method: 'PATCH', body: { paid: true } });
+    toast('Marked as paid. The owning office can now process this request.', 'success');
+    loadPayments();
   } catch (e) { toast(e.message, 'error'); }
 }
 
@@ -286,9 +353,12 @@ async function openRequest(id) {
         <div><span class="req-detail-label">Created</span><span class="req-detail-value">${formatDate(r.created_at)}</span></div>
       </div>
       <div class="req-actions-row">
-        ${r.status === 'pending' && !r.paid ? `<button class="btn-primary" onclick="updateRequest(${r.id}, {paid: true, status: 'processing'})">Mark as Paid</button>` : ''}
-        ${r.status === 'pending' || r.status === 'processing' ? `<button class="btn-secondary" onclick="updateRequest(${r.id}, {status: 'ready'})">Mark Ready</button>` : ''}
-        ${r.status === 'ready' ? `<button class="btn-primary" onclick="updateRequest(${r.id}, {status: 'released'})">Release Document</button>` : ''}
+        ${!r.paid ? `<button class="btn-primary" onclick="updateRequest(${r.id}, {paid: true})">Mark as Paid</button>` : ''}
+        ${r.paid && r.status === 'pending' ? `<button class="btn-secondary" onclick="updateRequest(${r.id}, {status: 'processing'})">Start Processing</button>` : ''}
+        ${(r.status === 'pending' || r.status === 'processing') ? `<button class="btn-secondary" onclick="releaseGuard(${r.id}, ${r.paid ? 'true' : 'false'}, 'ready')">Mark Ready</button>` : ''}
+        ${r.status === 'ready' ? `<button class="btn-primary" onclick="releaseGuard(${r.id}, ${r.paid ? 'true' : 'false'}, 'released')">Release Document</button>` : ''}
+        ${(r.status === 'released' || r.status === 'cancelled') && !r.archived ? `<button class="btn-secondary" onclick="updateRequest(${r.id}, {archived: true})">Archive</button>` : ''}
+        ${r.archived ? `<button class="btn-secondary" onclick="updateRequest(${r.id}, {archived: false})">Unarchive</button>` : ''}
         ${r.status !== 'released' && r.status !== 'cancelled' ? `<button class="btn-danger" onclick="updateRequest(${r.id}, {status: 'cancelled'})">Cancel Request</button>` : ''}
       </div>
     </div>
@@ -305,6 +375,13 @@ async function updateRequest(id, body) {
     loadRequests();
     loadDashboard();
   } catch (e) { toast(e.message, 'error'); }
+}
+
+function releaseGuard(id, paid, targetStatus) {
+  if (!paid) {
+    if (!confirm('This request is still UNPAID. Release without payment? If the student paid in cash, mark as paid first before releasing.')) return;
+  }
+  updateRequest(id, { status: targetStatus });
 }
 
 // ============ ANNOUNCEMENTS ============

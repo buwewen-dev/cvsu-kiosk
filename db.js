@@ -255,6 +255,7 @@ async function migrate() {
   // Backfill new columns on requests if they don't exist yet
   await addColumnIfMissing('requests', 'scheduled_at', 'TEXT');
   await addColumnIfMissing('requests', 'total_fee', 'REAL');
+  await addColumnIfMissing('requests', 'archived', 'INTEGER DEFAULT 0');
 }
 
 async function addColumnIfMissing(table, column, type) {
