@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CvSU Admin - Office Dashboard</title>
+  <link rel="stylesheet" href="css/admin.css">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <svg viewBox="0 0 80 80" width="36" height="36">
+      <circle cx="40" cy="40" r="38" fill="none" stroke="#FFD24D" stroke-width="2"/>
+      <circle cx="40" cy="40" r="30" fill="#0E5732"/>
+      <text x="40" y="48" text-anchor="middle" fill="#FFD24D" font-size="22" font-weight="800" font-family="Plus Jakarta Sans">CvSU</text>
+    </svg>
+    <div>
+      <div class="sb-name">CvSU Kiosk</div>
+      <div class="sb-sub">Office Console</div>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <button class="sb-link is-active" data-tab="dashboard" onclick="showTab('dashboard')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+      Dashboard
+    </button>
+    <button class="sb-link" data-tab="requests" onclick="showTab('requests')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8"/></svg>
+      Requests
+      <span class="sb-badge" id="badgePending">0</span>
+    </button>
+    <button class="sb-link" data-tab="announcements" onclick="showTab('announcements')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/></svg>
+      Announcements
+    </button>
+    <button class="sb-link" data-tab="faqs" onclick="showTab('faqs')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></svg>
+      FAQs
+    </button>
+  </nav>
+
+  <div class="sidebar-foot">
+    <div class="sb-user">
+      <div class="sb-user-avatar" id="userAvatar">A</div>
+      <div>
+        <div class="sb-user-name" id="userName">Loading...</div>
+        <div class="sb-user-role" id="userRole">--</div>
+      </div>
+    </div>
+    <button class="sb-logout" onclick="doLogout()">Sign out</button>
+  </div>
+</aside>
+
+<main class="main">
+
+  <!-- DASHBOARD TAB -->
+  <section class="tab is-active" data-tab="dashboard">
+    <header class="page-head">
+      <div>
+        <h1>Office Dashboard</h1>
+        <p class="page-sub" id="dashSub">Today at a glance</p>
+      </div>
+      <div class="page-head-clock" id="liveClock">--:--</div>
+    </header>
+
+    <div class="stats-grid" id="statsGrid"></div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>Recent Requests</h2>
+        <button class="btn-text" onclick="showTab('requests')">View all &rarr;</button>
+      </div>
+      <div class="request-list" id="recentRequests"></div>
+    </div>
+  </section>
+
+  <!-- REQUESTS TAB -->
+  <section class="tab" data-tab="requests">
+    <header class="page-head">
+      <div>
+        <h1>Requests</h1>
+        <p class="page-sub">Manage student document requests for your office</p>
+      </div>
+      <button class="btn-secondary" onclick="loadRequests()">Refresh</button>
+    </header>
+
+    <div class="filters">
+      <button class="filter-chip is-active" data-filter="all" onclick="filterRequests('all')">All</button>
+      <button class="filter-chip" data-filter="pending" onclick="filterRequests('pending')">Pending</button>
+      <button class="filter-chip" data-filter="processing" onclick="filterRequests('processing')">Processing</button>
+      <button class="filter-chip" data-filter="ready" onclick="filterRequests('ready')">Ready</button>
+      <button class="filter-chip" data-filter="released" onclick="filterRequests('released')">Released</button>
+      <button class="filter-chip" data-filter="cancelled" onclick="filterRequests('cancelled')">Cancelled</button>
+    </div>
+
+    <div class="card">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Reference</th>
+            <th>Queue</th>
+            <th>Student</th>
+            <th>Document</th>
+            <th>Fee</th>
+            <th>Payment</th>
+            <th>Status</th>
+            <th>Pickup</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="requestsTable"></tbody>
+      </table>
+      <div class="empty" id="requestsEmpty" hidden>No requests match the selected filter.</div>
+    </div>
+  </section>
+
+  <!-- ANNOUNCEMENTS TAB -->
+  <section class="tab" data-tab="announcements">
+    <header class="page-head">
+      <div>
+        <h1>Announcements</h1>
+        <p class="page-sub">Post university news, events, and reminders to the kiosk</p>
+      </div>
+      <button class="btn-primary" onclick="openAnnouncementModal()">+ New Announcement</button>
+    </header>
+    <div class="ann-grid" id="annGrid"></div>
+  </section>
+
+  <!-- FAQs TAB -->
+  <section class="tab" data-tab="faqs">
+    <header class="page-head">
+      <div>
+        <h1>Frequently Asked Questions</h1>
+        <p class="page-sub">Quick answers shown to students at the kiosk</p>
+      </div>
+      <button class="btn-primary" onclick="openFaqModal()">+ New FAQ</button>
+    </header>
+    <div class="faq-admin-list" id="faqAdminList"></div>
+  </section>
+
+</main>
+
+<!-- Request Detail Modal -->
+<div class="modal" id="requestModal">
+  <div class="modal-card modal-card--lg" id="requestModalBody"></div>
+</div>
+
+<!-- Announcement Modal -->
+<div class="modal" id="annModal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3 id="annModalTitle">New Announcement</h3>
+      <button class="modal-close" onclick="closeAnnModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <label class="field"><span>Type</span>
+        <select id="annType">
+          <option value="news">News</option>
+          <option value="event">Event</option>
+          <option value="academic">Academic</option>
+          <option value="reminder">Reminder</option>
+        </select>
+      </label>
+      <label class="field"><span>Title</span><input type="text" id="annTitle"></label>
+      <label class="field"><span>Body</span><textarea id="annBody" rows="4"></textarea></label>
+      <label class="field"><span>Date Text (display only)</span><input type="text" id="annDate" placeholder="e.g. May 30, 2026"></label>
+      <label class="field-check">
+        <input type="checkbox" id="annFeatured"> Feature this announcement (larger card)
+      </label>
+      <button class="btn-primary btn-block" onclick="saveAnnouncement()">Save Announcement</button>
+    </div>
+  </div>
+</div>
+
+<!-- FAQ Modal -->
+<div class="modal" id="faqModal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3 id="faqModalTitle">New FAQ</h3>
+      <button class="modal-close" onclick="closeFaqModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <label class="field"><span>Category</span><input type="text" id="faqCat" placeholder="e.g. Registrar"></label>
+      <label class="field"><span>Question</span><input type="text" id="faqQ"></label>
+      <label class="field"><span>Answer</span><textarea id="faqA" rows="4"></textarea></label>
+      <button class="btn-primary btn-block" onclick="saveFaq()">Save FAQ</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="adminToast"></div>
+
+<script src="js/office.js"></script>
+</body>
+</html>

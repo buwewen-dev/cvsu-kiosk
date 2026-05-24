@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: cvsu-kiosk
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: cvsu-kiosk-db
+          property: connectionString
+      - key: NODE_ENV
+        value: production
+
+databases:
+  - name: cvsu-kiosk-db
+    plan: free
+    databaseName: cvsu_kiosk
+    user: cvsu_kiosk_user

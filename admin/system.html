@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CvSU Admin - System Console</title>
+  <link rel="stylesheet" href="css/admin.css">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<aside class="sidebar sidebar--system">
+  <div class="sidebar-brand">
+    <svg viewBox="0 0 80 80" width="36" height="36">
+      <circle cx="40" cy="40" r="38" fill="none" stroke="#FFD24D" stroke-width="2"/>
+      <circle cx="40" cy="40" r="30" fill="#0E5732"/>
+      <text x="40" y="48" text-anchor="middle" fill="#FFD24D" font-size="22" font-weight="800" font-family="Plus Jakarta Sans">CvSU</text>
+    </svg>
+    <div>
+      <div class="sb-name">CvSU Kiosk</div>
+      <div class="sb-sub" style="color:#FFD24D">System Console</div>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <button class="sb-link is-active" data-tab="overview" onclick="showTab('overview')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+      Overview
+    </button>
+    <button class="sb-link" data-tab="users" onclick="showTab('users')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6M17 11h6"/></svg>
+      Users
+    </button>
+    <button class="sb-link" data-tab="all-requests" onclick="showTab('all-requests')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8"/></svg>
+      All Requests
+    </button>
+    <button class="sb-link" data-tab="announcements" onclick="showTab('announcements')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/></svg>
+      Announcements
+    </button>
+    <button class="sb-link" data-tab="mission" onclick="showTab('mission')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/></svg>
+      Mission and Vision
+    </button>
+  </nav>
+
+  <div class="sidebar-foot">
+    <div class="sb-user">
+      <div class="sb-user-avatar" id="userAvatar">A</div>
+      <div>
+        <div class="sb-user-name" id="userName">Loading...</div>
+        <div class="sb-user-role" id="userRole">System Admin</div>
+      </div>
+    </div>
+    <button class="sb-logout" onclick="doLogout()">Sign out</button>
+  </div>
+</aside>
+
+<main class="main">
+
+  <!-- OVERVIEW -->
+  <section class="tab is-active" data-tab="overview">
+    <header class="page-head">
+      <div>
+        <h1>System Overview</h1>
+        <p class="page-sub">Real-time status across all offices</p>
+      </div>
+      <div class="page-head-clock" id="liveClock">--:--</div>
+    </header>
+    <div class="stats-grid" id="overviewStats"></div>
+    <div class="card">
+      <div class="card-head"><h2>Activity by Office</h2></div>
+      <div class="office-stats" id="officeStats"></div>
+    </div>
+  </section>
+
+  <!-- USERS -->
+  <section class="tab" data-tab="users">
+    <header class="page-head">
+      <div>
+        <h1>Users and Access</h1>
+        <p class="page-sub">Manage office staff and system administrators</p>
+      </div>
+      <button class="btn-primary" onclick="openUserModal()">+ Add User</button>
+    </header>
+    <div class="card">
+      <table class="data-table">
+        <thead>
+          <tr><th>Username</th><th>Name</th><th>Role</th><th>Office</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody id="usersTable"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ALL REQUESTS -->
+  <section class="tab" data-tab="all-requests">
+    <header class="page-head">
+      <div>
+        <h1>All Requests</h1>
+        <p class="page-sub">View requests across all offices</p>
+      </div>
+      <button class="btn-secondary" onclick="loadAllRequests()">Refresh</button>
+    </header>
+    <div class="filters">
+      <button class="filter-chip is-active" data-officef="all" onclick="filterByOffice('all')">All Offices</button>
+      <button class="filter-chip" data-officef="registrar" onclick="filterByOffice('registrar')">Registrar</button>
+      <button class="filter-chip" data-officef="cashier" onclick="filterByOffice('cashier')">Cashier</button>
+      <button class="filter-chip" data-officef="osas" onclick="filterByOffice('osas')">OSAS</button>
+    </div>
+    <div class="card">
+      <table class="data-table">
+        <thead>
+          <tr><th>Reference</th><th>Office</th><th>Student</th><th>Document</th><th>Fee</th><th>Status</th><th>Created</th></tr>
+        </thead>
+        <tbody id="allRequestsTable"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ANNOUNCEMENTS -->
+  <section class="tab" data-tab="announcements">
+    <header class="page-head">
+      <div>
+        <h1>Global Announcements</h1>
+        <p class="page-sub">Post university-wide announcements visible at the kiosk</p>
+      </div>
+      <button class="btn-primary" onclick="openAnnouncementModal()">+ New Announcement</button>
+    </header>
+    <div class="ann-grid" id="annGrid"></div>
+  </section>
+
+  <!-- MISSION -->
+  <section class="tab" data-tab="mission">
+    <header class="page-head">
+      <div>
+        <h1>Mission and Vision</h1>
+        <p class="page-sub">Edit the content shown on the About CvSU screen</p>
+      </div>
+      <button class="btn-primary" onclick="saveMission()">Save Changes</button>
+    </header>
+    <div class="card">
+      <label class="field"><span>Vision</span><textarea id="mvVision" rows="4"></textarea></label>
+      <label class="field"><span>Mission</span><textarea id="mvMission" rows="6"></textarea></label>
+      <label class="field"><span>Core Values</span><input type="text" id="mvValues"></label>
+    </div>
+  </section>
+
+</main>
+
+<!-- User Modal -->
+<div class="modal" id="userModal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3 id="userModalTitle">Add New User</h3>
+      <button class="modal-close" onclick="closeUserModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <label class="field"><span>Full Name</span><input type="text" id="userFullName"></label>
+      <label class="field"><span>Username</span><input type="text" id="userUsername" autocomplete="off"></label>
+      <label class="field"><span>Password</span><input type="password" id="userPassword" autocomplete="new-password"></label>
+      <label class="field"><span>Role</span>
+        <select id="userRoleSelect" onchange="toggleOfficeField()">
+          <option value="office_admin">Office Admin</option>
+          <option value="system_admin">System Admin</option>
+        </select>
+      </label>
+      <label class="field" id="officeFieldWrap"><span>Office</span>
+        <select id="userOffice">
+          <option value="registrar">Registrar</option>
+          <option value="cashier">Cashier</option>
+          <option value="osas">OSAS</option>
+        </select>
+      </label>
+      <button class="btn-primary btn-block" onclick="saveUser()">Create User</button>
+    </div>
+  </div>
+</div>
+
+<!-- Announcement Modal -->
+<div class="modal" id="annModal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3 id="annModalTitle">New Announcement</h3>
+      <button class="modal-close" onclick="closeAnnModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <label class="field"><span>Type</span>
+        <select id="annType">
+          <option value="news">News</option>
+          <option value="event">Event</option>
+          <option value="academic">Academic</option>
+          <option value="reminder">Reminder</option>
+        </select>
+      </label>
+      <label class="field"><span>Title</span><input type="text" id="annTitle"></label>
+      <label class="field"><span>Body</span><textarea id="annBody" rows="4"></textarea></label>
+      <label class="field"><span>Date Text</span><input type="text" id="annDate"></label>
+      <label class="field-check"><input type="checkbox" id="annFeatured"> Feature this announcement</label>
+      <button class="btn-primary btn-block" onclick="saveAnnouncement()">Save Announcement</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="adminToast"></div>
+
+<script src="js/system.js"></script>
+</body>
+</html>

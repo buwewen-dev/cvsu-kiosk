@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CvSU Kiosk Admin - Sign In</title>
+  <link rel="stylesheet" href="css/admin.css">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="login-body">
+
+<div class="login-wrap">
+  <div class="login-side">
+    <div class="login-side-brand">
+      <svg viewBox="0 0 80 80" width="60" height="60">
+        <circle cx="40" cy="40" r="38" fill="none" stroke="#FFD24D" stroke-width="2"/>
+        <circle cx="40" cy="40" r="30" fill="#0E5732"/>
+        <text x="40" y="48" text-anchor="middle" fill="#FFD24D" font-size="22" font-weight="800" font-family="Plus Jakarta Sans">CvSU</text>
+      </svg>
+      <div>
+        <div class="login-side-name">CvSU Cavite City</div>
+        <div class="login-side-sub">Kiosk Admin Console</div>
+      </div>
+    </div>
+    <h1 class="login-side-headline">Manage student services from one place.</h1>
+    <p class="login-side-copy">Office staff and system administrators sign in here to track document requests, manage queues, and update announcements.</p>
+    <div class="login-side-tip">
+      <div class="login-side-tip-title">Demo credentials</div>
+      <ul class="login-side-tip-list">
+        <li><b>System Admin:</b> admin / admin123</li>
+        <li><b>Registrar:</b> registrar / reg123</li>
+        <li><b>Cashier:</b> cashier / cash123</li>
+        <li><b>OSAS:</b> osas / osas123</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="login-form-wrap">
+    <form class="login-form" onsubmit="event.preventDefault(); doLogin();">
+      <h2>Sign in</h2>
+      <p class="login-form-sub">Enter your administrator credentials.</p>
+      <label class="field">
+        <span>Username</span>
+        <input type="text" id="username" autocomplete="username" required autofocus>
+      </label>
+      <label class="field">
+        <span>Password</span>
+        <input type="password" id="password" autocomplete="current-password" required>
+      </label>
+      <div class="login-error" id="loginError" hidden></div>
+      <button type="submit" class="btn-primary" id="signinBtn">Sign in</button>
+      <a href="/" class="back-link">Back to kiosk</a>
+    </form>
+  </div>
+</div>
+
+<script>
+async function doLogin() {
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value;
+  const err = document.getElementById('loginError');
+  const btn = document.getElementById('signinBtn');
+  err.hidden = true;
+  btn.disabled = true;
+  btn.textContent = 'Signing in...';
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Sign in failed');
+    if (data.user.role === 'system_admin') {
+      window.location.href = '/admin/system';
+    } else {
+      window.location.href = '/admin/office';
+    }
+  } catch (e) {
+    err.textContent = e.message;
+    err.hidden = false;
+    btn.disabled = false;
+    btn.textContent = 'Sign in';
+  }
+}
+</script>
+</body>
+</html>

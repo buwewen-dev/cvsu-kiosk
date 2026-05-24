@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1920, initial-scale=1, user-scalable=no">
+  <title>CvSU Cavite City Kiosk</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ============ WELCOME / LOCK SCREEN ============ -->
+  <section class="screen screen--welcome active" data-screen="welcome">
+    <div class="welcome-bg">
+      <div class="bg-orb bg-orb--1"></div>
+      <div class="bg-orb bg-orb--2"></div>
+      <div class="bg-orb bg-orb--3"></div>
+      <svg class="bg-grid" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="grid-pattern" width="80" height="80" patternUnits="userSpaceOnUse">
+            <path d="M 80 0 L 0 0 0 80" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#grid-pattern)"/>
+      </svg>
+    </div>
+
+    <div class="welcome-content">
+      <div class="welcome-top">
+        <div class="brand-mark">
+          <svg viewBox="0 0 80 80" class="brand-seal">
+            <circle cx="40" cy="40" r="38" fill="none" stroke="#FFD24D" stroke-width="2"/>
+            <circle cx="40" cy="40" r="30" fill="#0E5732"/>
+            <text x="40" y="48" text-anchor="middle" fill="#FFD24D" font-size="22" font-weight="800" font-family="Plus Jakarta Sans">CvSU</text>
+          </svg>
+          <div class="brand-text">
+            <div class="brand-name">Cavite State University</div>
+            <div class="brand-campus">Cavite City Campus</div>
+          </div>
+        </div>
+        <div class="welcome-clock">
+          <div class="clock-time" id="welcomeTime">--:--</div>
+          <div class="clock-date" id="welcomeDate">Loading...</div>
+        </div>
+      </div>
+
+      <div class="welcome-hero">
+        <div class="welcome-eyebrow">Multi-Service University Kiosk</div>
+        <h1 class="welcome-title">
+          <span class="title-line">Student services,</span>
+          <span class="title-line title-line--accent">in one tap.</span>
+        </h1>
+        <p class="welcome-sub">Request documents, find offices, check announcements, and skip the queue. Tap to begin.</p>
+
+        <div class="welcome-actions">
+          <button class="btn btn--primary btn--xl" onclick="openLogin()">
+            <span class="btn-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <rect x="3" y="3" width="7" height="7" rx="1"/>
+                <rect x="14" y="3" width="7" height="7" rx="1"/>
+                <rect x="3" y="14" width="7" height="7" rx="1"/>
+                <path d="M14 14h3v3h-3zM18 14h3M14 18h3v3M21 18v3"/>
+              </svg>
+            </span>
+            Scan Student ID
+          </button>
+          <button class="btn btn--ghost btn--xl" onclick="enterAsGuest()">Continue as Guest</button>
+        </div>
+
+        <div class="welcome-foot">
+          <div class="foot-stat">
+            <div class="foot-stat-num" id="statQueue">12</div>
+            <div class="foot-stat-label">In Queue Today</div>
+          </div>
+          <div class="foot-divider"></div>
+          <div class="foot-stat">
+            <div class="foot-stat-num" id="statDocs">8</div>
+            <div class="foot-stat-label">Document Types</div>
+          </div>
+          <div class="foot-divider"></div>
+          <div class="foot-stat">
+            <div class="foot-stat-num">3</div>
+            <div class="foot-stat-label">Offices Online</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ MAIN MENU ============ -->
+  <section class="screen" data-screen="menu">
+    <header class="topbar">
+      <button class="topbar-back" onclick="goWelcome()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Home
+      </button>
+      <div class="topbar-center">
+        <div class="topbar-greet" id="menuGreet">Welcome</div>
+        <div class="topbar-user" id="menuUser">Guest User</div>
+      </div>
+      <div class="topbar-clock" id="topbarClock">--:--</div>
+    </header>
+
+    <div class="menu-wrap">
+      <div class="menu-hero">
+        <h2 class="menu-title">How can we help you today?</h2>
+        <p class="menu-sub">Pick a service below. Most actions finish in under 2 minutes.</p>
+      </div>
+
+      <div class="menu-grid">
+        <button class="menu-card menu-card--primary" onclick="showScreen('docrequest')">
+          <div class="menu-card-icon" style="background:#0E5732">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
+          </div>
+          <div class="menu-card-body">
+            <div class="menu-card-tag">Most Used</div>
+            <h3 class="menu-card-title">Request a Document</h3>
+            <p class="menu-card-desc">TOR, COG, COE, Diploma copy, and more</p>
+          </div>
+          <div class="menu-card-arrow">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+        </button>
+
+        <button class="menu-card" onclick="showScreen('queue')">
+          <div class="menu-card-icon" style="background:#1E88E5">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="7" r="3"/><circle cx="9" cy="17" r="3"/><path d="M15 7h6M15 17h6M15 12h6"/></svg>
+          </div>
+          <div class="menu-card-body">
+            <h3 class="menu-card-title">Live Queue</h3>
+            <p class="menu-card-desc">Check your queue number and waiting time</p>
+          </div>
+          <div class="menu-card-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+        </button>
+
+        <button class="menu-card" onclick="showScreen('map')">
+          <div class="menu-card-icon" style="background:#E53935">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          </div>
+          <div class="menu-card-body">
+            <h3 class="menu-card-title">Campus Map</h3>
+            <p class="menu-card-desc">Find offices, classrooms, and facilities</p>
+          </div>
+          <div class="menu-card-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+        </button>
+
+        <button class="menu-card" onclick="showScreen('announce')">
+          <div class="menu-card-icon" style="background:#FB8C00">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+          </div>
+          <div class="menu-card-body">
+            <div class="menu-card-tag menu-card-tag--hot">New</div>
+            <h3 class="menu-card-title">Announcements</h3>
+            <p class="menu-card-desc">University news, events, and updates</p>
+          </div>
+          <div class="menu-card-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+        </button>
+
+        <button class="menu-card" onclick="showScreen('faq')">
+          <div class="menu-card-icon" style="background:#8E24AA">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></svg>
+          </div>
+          <div class="menu-card-body">
+            <h3 class="menu-card-title">Inquiry / FAQs</h3>
+            <p class="menu-card-desc">Quick answers to common questions</p>
+          </div>
+          <div class="menu-card-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+        </button>
+
+        <button class="menu-card" onclick="showScreen('mission')">
+          <div class="menu-card-icon" style="background:#00897B">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/></svg>
+          </div>
+          <div class="menu-card-body">
+            <h3 class="menu-card-title">About CvSU</h3>
+            <p class="menu-card-desc">Mission, Vision, and university info</p>
+          </div>
+          <div class="menu-card-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+        </button>
+      </div>
+
+      <div class="menu-ticker">
+        <div class="ticker-label">Now serving</div>
+        <div class="ticker-track" id="liveTicker">Loading queue data...</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CAMPUS MAP ============ -->
+  <section class="screen" data-screen="map">
+    <header class="topbar">
+      <button class="topbar-back" onclick="showScreen('menu')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Menu
+      </button>
+      <div class="topbar-center">
+        <div class="topbar-greet">Campus Map</div>
+        <div class="topbar-user">CvSU Cavite City Campus</div>
+      </div>
+      <div class="topbar-clock" id="topbarClockMap">--:--</div>
+    </header>
+
+    <div class="map-wrap">
+      <div class="map-canvas-wrap">
+        <svg viewBox="0 0 1100 620" class="map-svg" id="campusMap">
+          <!-- Background grass -->
+          <rect width="1100" height="620" fill="#0F2A1A"/>
+          <pattern id="grass" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+            <circle cx="2" cy="2" r="1" fill="#163E2A" opacity="0.6"/>
+            <circle cx="12" cy="14" r="1" fill="#163E2A" opacity="0.4"/>
+          </pattern>
+          <rect width="1100" height="620" fill="url(#grass)"/>
+
+          <!-- Road -->
+          <path d="M 0 320 L 1100 320" stroke="#3a3a3a" stroke-width="50" fill="none"/>
+          <path d="M 0 320 L 1100 320" stroke="#FFD24D" stroke-width="2" stroke-dasharray="20 15" fill="none"/>
+
+          <!-- Path -->
+          <path d="M 550 100 L 550 580" stroke="#8a7a5a" stroke-width="20" fill="none"/>
+          <path d="M 200 200 L 900 200" stroke="#8a7a5a" stroke-width="14" fill="none" opacity="0.7"/>
+          <path d="M 200 460 L 900 460" stroke="#8a7a5a" stroke-width="14" fill="none" opacity="0.7"/>
+
+          <!-- Trees -->
+          <g class="map-trees">
+            <circle cx="120" cy="120" r="22" fill="#1F5A35"/>
+            <circle cx="120" cy="120" r="14" fill="#2D7A48"/>
+            <circle cx="980" cy="120" r="22" fill="#1F5A35"/>
+            <circle cx="980" cy="120" r="14" fill="#2D7A48"/>
+            <circle cx="120" cy="500" r="22" fill="#1F5A35"/>
+            <circle cx="120" cy="500" r="14" fill="#2D7A48"/>
+            <circle cx="980" cy="500" r="22" fill="#1F5A35"/>
+            <circle cx="980" cy="500" r="14" fill="#2D7A48"/>
+            <circle cx="450" cy="540" r="18" fill="#1F5A35"/>
+            <circle cx="650" cy="540" r="18" fill="#1F5A35"/>
+          </g>
+
+          <!-- Buildings (clickable) -->
+          <g class="map-building" data-bldg="admin" onclick="selectBuilding('admin')">
+            <rect x="200" y="80" width="220" height="140" rx="6" fill="#2C5A8A" stroke="#FFD24D" stroke-width="2"/>
+            <rect x="220" y="100" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="260" y="100" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="300" y="100" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="340" y="100" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="380" y="100" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="220" y="140" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="260" y="140" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="300" y="140" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="340" y="140" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="380" y="140" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="290" y="180" width="40" height="40" fill="#0E5732"/>
+            <text x="310" y="55" text-anchor="middle" fill="white" font-size="16" font-weight="700">Administration</text>
+            <text x="310" y="72" text-anchor="middle" fill="#FFD24D" font-size="12">Registrar . OSAS</text>
+          </g>
+
+          <g class="map-building" data-bldg="academic" onclick="selectBuilding('academic')">
+            <rect x="640" y="80" width="240" height="140" rx="6" fill="#0E5732" stroke="#FFD24D" stroke-width="2"/>
+            <rect x="660" y="100" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="700" y="100" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="740" y="100" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="780" y="100" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="820" y="100" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="660" y="140" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="700" y="140" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="740" y="140" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="780" y="140" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="820" y="140" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="740" y="180" width="40" height="40" fill="#FFD24D"/>
+            <text x="760" y="55" text-anchor="middle" fill="white" font-size="16" font-weight="700">IT Building</text>
+            <text x="760" y="72" text-anchor="middle" fill="#FFD24D" font-size="12">CS . IT . Lab Rooms</text>
+          </g>
+
+          <g class="map-building" data-bldg="cashier" onclick="selectBuilding('cashier')">
+            <rect x="200" y="380" width="180" height="110" rx="6" fill="#E53935" stroke="#FFD24D" stroke-width="2"/>
+            <rect x="220" y="400" width="25" height="25" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="255" y="400" width="25" height="25" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="290" y="400" width="25" height="25" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="325" y="400" width="25" height="25" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="220" y="435" width="25" height="25" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="255" y="435" width="25" height="25" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="290" y="435" width="25" height="25" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="325" y="435" width="25" height="25" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="265" y="455" width="40" height="35" fill="#0E5732"/>
+            <text x="290" y="370" text-anchor="middle" fill="white" font-size="15" font-weight="700">Cashier</text>
+          </g>
+
+          <g class="map-building" data-bldg="library" onclick="selectBuilding('library')">
+            <rect x="450" y="380" width="200" height="110" rx="6" fill="#FB8C00" stroke="#FFD24D" stroke-width="2"/>
+            <rect x="470" y="400" width="25" height="25" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="505" y="400" width="25" height="25" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="540" y="400" width="25" height="25" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="575" y="400" width="25" height="25" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="610" y="400" width="25" height="25" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="470" y="435" width="25" height="25" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="505" y="435" width="25" height="25" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="540" y="435" width="25" height="25" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="575" y="435" width="25" height="25" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="610" y="435" width="25" height="25" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="530" y="455" width="40" height="35" fill="#0E5732"/>
+            <text x="550" y="370" text-anchor="middle" fill="white" font-size="15" font-weight="700">Library</text>
+          </g>
+
+          <g class="map-building" data-bldg="gym" onclick="selectBuilding('gym')">
+            <rect x="720" y="380" width="180" height="110" rx="6" fill="#8E24AA" stroke="#FFD24D" stroke-width="2"/>
+            <path d="M 720 380 L 810 350 L 900 380" fill="#5E1880" stroke="#FFD24D" stroke-width="2"/>
+            <rect x="740" y="410" width="35" height="35" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="785" y="410" width="35" height="35" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="830" y="410" width="35" height="35" rx="2" fill="#FFD24D" opacity="0.8"/>
+            <rect x="800" y="455" width="40" height="35" fill="#0E5732"/>
+            <text x="810" y="370" text-anchor="middle" fill="white" font-size="15" font-weight="700">Gymnasium</text>
+          </g>
+
+          <!-- Gate -->
+          <g>
+            <rect x="520" y="570" width="60" height="40" fill="#FFD24D"/>
+            <text x="550" y="595" text-anchor="middle" fill="#0E5732" font-size="12" font-weight="700">MAIN GATE</text>
+          </g>
+
+          <!-- North compass -->
+          <g transform="translate(1030, 60)">
+            <circle r="30" fill="rgba(0,0,0,0.4)" stroke="#FFD24D" stroke-width="2"/>
+            <path d="M 0 -22 L 6 0 L 0 4 L -6 0 Z" fill="#E53935"/>
+            <path d="M 0 22 L 6 0 L 0 -4 L -6 0 Z" fill="white"/>
+            <text x="0" y="-32" text-anchor="middle" fill="#FFD24D" font-size="12" font-weight="700">N</text>
+          </g>
+        </svg>
+      </div>
+
+      <aside class="map-side" id="mapSide">
+        <div class="map-side-empty">
+          <div class="map-side-empty-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          </div>
+          <h3>Tap any building</h3>
+          <p>Select a building on the map to see what offices and rooms are inside.</p>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ============ ANNOUNCEMENTS ============ -->
+  <section class="screen" data-screen="announce">
+    <header class="topbar">
+      <button class="topbar-back" onclick="showScreen('menu')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Menu
+      </button>
+      <div class="topbar-center">
+        <div class="topbar-greet">Announcements</div>
+        <div class="topbar-user">University news, events, and updates</div>
+      </div>
+      <div class="topbar-clock" id="topbarClockAnn">--:--</div>
+    </header>
+
+    <div class="page-wrap">
+      <div class="announce-grid" id="announceGrid"></div>
+    </div>
+  </section>
+
+  <!-- ============ FAQ ============ -->
+  <section class="screen" data-screen="faq">
+    <header class="topbar">
+      <button class="topbar-back" onclick="showScreen('menu')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Menu
+      </button>
+      <div class="topbar-center">
+        <div class="topbar-greet">Frequently Asked Questions</div>
+        <div class="topbar-user">Quick answers to common student concerns</div>
+      </div>
+      <div class="topbar-clock" id="topbarClockFaq">--:--</div>
+    </header>
+
+    <div class="page-wrap">
+      <div class="faq-filters" id="faqFilters"></div>
+      <div class="faq-list" id="faqList"></div>
+    </div>
+  </section>
+
+  <!-- ============ DOCUMENT REQUEST ============ -->
+  <section class="screen" data-screen="docrequest">
+    <header class="topbar">
+      <button class="topbar-back" onclick="docRequestBack()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Back
+      </button>
+      <div class="topbar-center">
+        <div class="topbar-greet">Document Request</div>
+        <div class="topbar-user" id="docStepLabel">Step 1 of 4 . Select Office</div>
+      </div>
+      <div class="topbar-clock" id="topbarClockDoc">--:--</div>
+    </header>
+
+    <div class="page-wrap">
+      <div class="stepper" id="docStepper">
+        <div class="step-item is-active"><span class="step-dot">1</span><span class="step-name">Office</span></div>
+        <div class="step-line"></div>
+        <div class="step-item"><span class="step-dot">2</span><span class="step-name">Document</span></div>
+        <div class="step-line"></div>
+        <div class="step-item"><span class="step-dot">3</span><span class="step-name">Review</span></div>
+        <div class="step-line"></div>
+        <div class="step-item"><span class="step-dot">4</span><span class="step-name">Payment</span></div>
+      </div>
+
+      <!-- Step 1: Office -->
+      <div class="doc-step" data-step="1">
+        <h2 class="step-title">Where do you need to go?</h2>
+        <p class="step-sub">Pick the office that handles your request.</p>
+        <div class="office-grid" id="officeGrid"></div>
+      </div>
+
+      <!-- Step 2: Document -->
+      <div class="doc-step" data-step="2" style="display:none">
+        <h2 class="step-title">Which document do you need?</h2>
+        <p class="step-sub">Fees and processing days are shown on each card.</p>
+        <div class="docs-grid" id="docsGrid"></div>
+      </div>
+
+      <!-- Step 3: Review -->
+      <div class="doc-step" data-step="3" style="display:none">
+        <h2 class="step-title">Review your request</h2>
+        <p class="step-sub">Make sure everything looks correct before continuing.</p>
+        <div class="review-card" id="reviewCard"></div>
+        <div class="form-actions">
+          <button class="btn btn--ghost btn--lg" onclick="goDocStep(2)">Edit</button>
+          <button class="btn btn--primary btn--lg" onclick="goDocStep(4)">Continue to Payment</button>
+        </div>
+      </div>
+
+      <!-- Step 4: Payment -->
+      <div class="doc-step" data-step="4" style="display:none">
+        <h2 class="step-title">How would you like to pay?</h2>
+        <p class="step-sub">You can pay now via e-wallet or pay at the Cashier.</p>
+        <div class="pay-grid">
+          <button class="pay-card" onclick="selectPay('ewallet')">
+            <div class="pay-icon" style="background:#0E5732">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 14h3M14 18h3v3M21 18v3"/></svg>
+            </div>
+            <div class="pay-body">
+              <h3>E-Wallet (QR Ph)</h3>
+              <p>GCash, Maya, BPI, GrabPay. Scan and pay now.</p>
+            </div>
+            <div class="pay-tag pay-tag--ok">Instant</div>
+          </button>
+          <button class="pay-card" onclick="selectPay('cash')">
+            <div class="pay-icon" style="background:#FB8C00">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/></svg>
+            </div>
+            <div class="pay-body">
+              <h3>Pay at Cashier</h3>
+              <p>Visit the Cashier's window with your reference number.</p>
+            </div>
+            <div class="pay-tag">Manual</div>
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ QR PAYMENT MODAL (inline screen) ============ -->
+  <section class="screen" data-screen="qrpay">
+    <header class="topbar">
+      <button class="topbar-back" onclick="goDocStep(4)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Cancel
+      </button>
+      <div class="topbar-center">
+        <div class="topbar-greet">E-Wallet Payment</div>
+        <div class="topbar-user">Scan with your GCash, Maya, or any QR Ph app</div>
+      </div>
+      <div class="topbar-clock" id="topbarClockQr">--:--</div>
+    </header>
+
+    <div class="page-wrap qr-wrap">
+      <div class="qr-card">
+        <div class="qr-label">Pay to</div>
+        <div class="qr-merchant">CAVITE STATE UNIVERSITY</div>
+        <div class="qr-amount" id="qrAmount">PHP 0.00</div>
+        <div class="qr-code" id="qrCode"></div>
+        <div class="qr-ref" id="qrRef">REF: --</div>
+        <button class="btn btn--primary btn--xl btn--block" onclick="finishPayment()">I have paid</button>
+        <p class="qr-hint">Tap the button after payment is confirmed in your e-wallet app.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ RECEIPT ============ -->
+  <section class="screen" data-screen="receipt">
+    <header class="topbar">
+      <button class="topbar-back" onclick="showScreen('menu')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Done
+      </button>
+      <div class="topbar-center">
+        <div class="topbar-greet">Request Confirmed</div>
+        <div class="topbar-user">Save your reference number</div>
+      </div>
+      <div class="topbar-clock" id="topbarClockRcp">--:--</div>
+    </header>
+
+    <div class="page-wrap receipt-wrap">
+      <div class="receipt-card" id="receiptCard"></div>
+      <div class="form-actions">
+        <button class="btn btn--ghost btn--lg" onclick="printReceipt()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
+          Print Receipt
+        </button>
+        <button class="btn btn--primary btn--lg" onclick="showScreen('menu')">Back to Menu</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ QUEUE STATUS ============ -->
+  <section class="screen" data-screen="queue">
+    <header class="topbar">
+      <button class="topbar-back" onclick="showScreen('menu')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Menu
+      </button>
+      <div class="topbar-center">
+        <div class="topbar-greet">Live Queue</div>
+        <div class="topbar-user">Real-time queue status for every office</div>
+      </div>
+      <div class="topbar-clock" id="topbarClockQ">--:--</div>
+    </header>
+
+    <div class="page-wrap">
+      <div class="queue-grid" id="queueGrid"></div>
+    </div>
+  </section>
+
+  <!-- ============ MISSION / VISION ============ -->
+  <section class="screen" data-screen="mission">
+    <header class="topbar">
+      <button class="topbar-back" onclick="showScreen('menu')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Menu
+      </button>
+      <div class="topbar-center">
+        <div class="topbar-greet">About CvSU</div>
+        <div class="topbar-user">Cavite State University, Cavite City Campus</div>
+      </div>
+      <div class="topbar-clock" id="topbarClockMV">--:--</div>
+    </header>
+
+    <div class="page-wrap mv-wrap">
+      <div class="mv-hero">
+        <svg viewBox="0 0 80 80" class="mv-seal">
+          <circle cx="40" cy="40" r="38" fill="none" stroke="#FFD24D" stroke-width="2"/>
+          <circle cx="40" cy="40" r="30" fill="#0E5732"/>
+          <text x="40" y="48" text-anchor="middle" fill="#FFD24D" font-size="22" font-weight="800">CvSU</text>
+        </svg>
+        <h2>Cavite State University</h2>
+        <p>Cavite City Campus . Cavite City</p>
+      </div>
+
+      <div class="mv-grid">
+        <div class="mv-card">
+          <div class="mv-card-tag">Vision</div>
+          <p>The premier university in historic Cavite globally recognized for excellence in character development, academics, research, innovation, and sustainable community engagement.</p>
+        </div>
+        <div class="mv-card">
+          <div class="mv-card-tag">Mission</div>
+          <p>Cavite State University shall provide excellent, equitable and relevant educational opportunities in the arts, sciences and technology through quality instruction and responsive research and development activities. It shall produce professional, skilled and morally upright individuals for global competitiveness.</p>
+        </div>
+        <div class="mv-card">
+          <div class="mv-card-tag">Core Values</div>
+          <p>Truth . Excellence . Service</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ LOGIN MODAL ============ -->
+  <div class="modal" id="loginModal">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3>Scan your Student ID</h3>
+        <button class="modal-close" onclick="closeLogin()">x</button>
+      </div>
+      <div class="modal-body">
+        <div class="qr-scanner-mock">
+          <div class="qr-scan-frame">
+            <div class="qr-scan-corner qr-scan-corner--tl"></div>
+            <div class="qr-scan-corner qr-scan-corner--tr"></div>
+            <div class="qr-scan-corner qr-scan-corner--bl"></div>
+            <div class="qr-scan-corner qr-scan-corner--br"></div>
+            <div class="qr-scan-line"></div>
+            <svg viewBox="0 0 100 100" class="qr-icon">
+              <rect x="10" y="10" width="25" height="25" rx="2" fill="none" stroke="rgba(255,210,77,0.5)" stroke-width="3"/>
+              <rect x="65" y="10" width="25" height="25" rx="2" fill="none" stroke="rgba(255,210,77,0.5)" stroke-width="3"/>
+              <rect x="10" y="65" width="25" height="25" rx="2" fill="none" stroke="rgba(255,210,77,0.5)" stroke-width="3"/>
+            </svg>
+          </div>
+          <div class="qr-or">or enter manually</div>
+          <input type="text" class="qr-input" id="loginIdInput" placeholder="Enter Student ID, e.g. 202301234">
+          <button class="btn btn--primary btn--lg btn--block" onclick="manualLogin()">Continue</button>
+          <button class="btn btn--ghost btn--block" onclick="demoLogin()">Use Demo Student (RM Agedio)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ BUILDING DETAIL MODAL ============ -->
+  <div class="modal" id="bldgModal">
+    <div class="modal-card" id="bldgCard"></div>
+  </div>
+
+  <!-- ============ TOAST ============ -->
+  <div class="toast" id="toast"></div>
+
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
