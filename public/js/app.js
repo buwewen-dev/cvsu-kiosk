@@ -138,37 +138,321 @@ async function getDocuments() {
   return STATE.cache.documents;
 }
 
+// ============ FLOOR PLAN DATA ============
+// Coordinates are within a 1210x620 viewBox matching the actual main building proportions.
+const FLOORS = {
+  ground: {
+    name: 'Ground Floor',
+    label: 'GROUND FLOOR PLAN',
+    rooms: [
+      // Left wing (HRM and Chem)
+      { id: 'cold-kitchen',   name: 'HRM Lab Cold Kitchen', type: 'lab',    x: 10,  y: 30,  w: 140, h: 150 },
+      { id: 'hot-kitchen',    name: 'HRM Lab Hot Kitchen',  type: 'lab',    x: 10,  y: 180, w: 140, h: 175 },
+      { id: 'chem-lab',       name: 'Chem Laboratory',      type: 'lab',    x: 10,  y: 395, w: 140, h: 200 },
+
+      // Center top
+      { id: 'housekeeping',   name: 'Housekeeping Laboratory', type: 'lab',     x: 190, y: 30,  w: 230, h: 120 },
+      { id: 'hotel-chabacano',name: 'Hotel El Chabacano',      type: 'academic',x: 190, y: 150, w: 130, h: 150 },
+      { id: 'chabacano-ext',  name: 'Chabacano Extension',     type: 'academic',x: 320, y: 150, w: 100, h: 80 },
+      { id: 'cr1',            name: 'Comfort Room',            type: 'service', label: 'CR', x: 420, y: 200, w: 50, h: 50 },
+      { id: 'stockroom',      name: 'HRM Stockroom',           type: 'support',x: 320, y: 230, w: 100, h: 70 },
+      { id: 'it-dept',        name: 'Information Technology Department', type: 'academic', x: 190, y: 300, w: 230, h: 100, isHighlight: true, shortName: 'IT Department' },
+      { id: 'mis',            name: 'MIS',                     type: 'support',x: 420, y: 300, w: 100, h: 100 },
+
+      // Bottom row
+      { id: 'guidance',       name: 'Guidance Office',         type: 'support',x: 190, y: 440, w: 130, h: 60 },
+      { id: 'counseling',     name: 'Counseling Area',         type: 'support',x: 190, y: 500, w: 80, h: 100 },
+      { id: 'osas',           name: 'OSAS',                    type: 'admin',  x: 270, y: 500, w: 75, h: 100, isKiosk: true, shortName: 'OSAS',
+        offices: [{ name: 'Office of Student Affairs and Services', room: 'Rm 105' }] },
+      { id: 'css-office',     name: 'CSS Office',              type: 'support',x: 345, y: 440, w: 135, h: 50 },
+      { id: 'classroom-114a', name: 'Classroom 114-A',         type: 'academic',x: 345, y: 490, w: 135, h: 110 },
+      { id: 'support-staff',  name: 'Support Staff',           type: 'support',x: 480, y: 440, w: 85, h: 45 },
+      { id: 'pps-office',     name: 'PPS / Supply Office',     type: 'support',x: 480, y: 485, w: 85, h: 90 },
+      { id: 'oja-office',     name: 'OjA Office',              type: 'support',x: 480, y: 575, w: 85, h: 25 },
+      { id: 'lobby1',         name: 'Main Lobby',              type: 'public', x: 565, y: 405, w: 130, h: 50 },
+      { id: 'admin-office',   name: 'Admin Office',            type: 'admin',  x: 565, y: 455, w: 130, h: 145, isHighlight: true, shortName: 'Admin Office' },
+
+      // Top right wing
+      { id: 'cr2',            name: 'Comfort Room',            type: 'service', label: 'CR', x: 695, y: 250, w: 50, h: 50 },
+      { id: 'registrar',      name: "Registrar's Office",      type: 'admin',  x: 565, y: 300, w: 130, h: 105, isKiosk: true, shortName: 'Registrar',
+        offices: [{ name: 'Office of the University Registrar', room: 'Rm 101' }] },
+      { id: 'accounting',     name: 'Accounting Office',       type: 'admin',  x: 695, y: 300, w: 110, h: 105, isKiosk: true, shortName: 'Cashier',
+        offices: [{ name: 'University Cashier / Accounting', room: 'Window 1-3' }] },
+      { id: 'rm103',          name: 'Rm 103',                  type: 'academic',x: 805, y: 300, w: 130, h: 105 },
+      { id: 'rce-office',     name: 'RCE Office',              type: 'support',x: 935, y: 300, w: 90, h: 105 },
+      { id: 'records-room',   name: 'Records Room',            type: 'admin',  x: 1025,y: 300, w: 110, h: 105 },
+      { id: 'shel',           name: 'Shel',                    type: 'support',label: 'SHE', x: 1135,y: 300, w: 30, h: 75 },
+      { id: 'elec-room',      name: 'Electrical Room',         type: 'service',label: 'ELEC',x: 1165,y: 300, w: 35, h: 75 },
+
+      // Stairs
+      { id: 'stairs-g1',      name: 'Stairs (UP)',             type: 'service',label: 'UP', x: 745, y: 405, w: 60, h: 35 },
+      { id: 'stairs-g2',      name: 'Stairs (DN)',             type: 'service',label: 'DN', x: 1135,y: 375, w: 50, h: 30 },
+
+      // Bottom right labs
+      { id: 'lobby2',         name: 'Lobby',                   type: 'public', x: 565, y: 600, w: 80, h: 0 },
+      { id: 'computer-lab',   name: 'Computer Lab 104-B',      type: 'lab',    x: 645, y: 470, w: 135, h: 130, isHighlight: true, shortName: 'Computer Lab' },
+      { id: 'new-lab-2',      name: 'New Lab 2',               type: 'lab',    x: 780, y: 470, w: 180, h: 130 },
+      { id: 'new-lab-1',      name: 'New Lab 1',               type: 'lab',    x: 960, y: 470, w: 175, h: 130 },
+      { id: 'lp-stair',       name: 'Stairs', type: 'service', label: 'UP', x: 1135,y: 470, w: 50, h: 50 },
+
+      // Exits
+      { id: 'main-gate',      name: 'MAIN ENTRANCE',           type: 'gate',   x: 320, y: 600, w: 220, h: 20 },
+      { id: 'east-exit',      name: 'East Exit',               type: 'gate', label: 'EXIT', x: 1150,y: 220, w: 50, h: 30 },
+    ],
+  },
+
+  second: {
+    name: 'Second Floor',
+    label: 'SECOND FLOOR PLAN',
+    rooms: [
+      // Left wing
+      { id: 'fire-exit',      name: 'Fire Exit (DN)',          type: 'service',label: 'FIRE EXIT', x: 10, y: 10, w: 140, h: 40 },
+      { id: 'room-218',       name: 'Room 218',                type: 'academic',x: 10, y: 60, w: 140, h: 140 },
+      { id: 'room-217',       name: 'Room 217',                type: 'academic',x: 10, y: 200, w: 140, h: 110 },
+      { id: 'room-216',       name: 'Room 216',                type: 'academic',x: 10, y: 310, w: 140, h: 140 },
+      { id: 'room-215',       name: 'Room 215 (Science Lab)',  type: 'lab',     x: 10, y: 450, w: 140, h: 150, isHighlight: true, shortName: 'Science Lab' },
+
+      // Center library
+      { id: 'lib-ext',        name: 'Library Extension',       type: 'library', x: 190, y: 30, w: 330, h: 200, isHighlight: true, shortName: 'Library Ext.' },
+      { id: 'library',        name: 'Library',                 type: 'library', x: 190, y: 230, w: 330, h: 200, isHighlight: true, shortName: 'Library' },
+
+      // Bottom center
+      { id: 'arts-sciences',  name: 'Dept. of Arts and Sciences', type: 'admin',x: 190, y: 445, w: 160, h: 75 },
+      { id: 'teacher-ed',     name: 'Dept. of Teacher Education and Languages', type: 'admin', x: 190, y: 520, w: 160, h: 80 },
+      { id: 'room-214',       name: 'Room 214',                type: 'academic',x: 350, y: 445, w: 110, h: 155 },
+      { id: 'room-213',       name: 'Room 213',                type: 'academic',x: 460, y: 445, w: 110, h: 155 },
+
+      // Right wing top hallway rooms
+      { id: 'room-212',       name: 'Room 212',                type: 'academic',x: 580, y: 230, w: 110, h: 200 },
+      { id: 'room-209',       name: 'Room 209',                type: 'academic',x: 690, y: 230, w: 110, h: 200 },
+      { id: 'room-207',       name: 'Room 207',                type: 'academic',x: 800, y: 230, w: 100, h: 200 },
+      { id: 'stairs-2',       name: 'Stairs (DN)',             type: 'service', label: 'STAIRS DN', x: 900, y: 270, w: 70, h: 160 },
+      { id: 'room-205',       name: 'Room 205',                type: 'academic',x: 970, y: 230, w: 100, h: 200 },
+      { id: 'room-203',       name: 'Room 203',                type: 'academic',x: 1070,y: 230, w: 90, h: 200 },
+      { id: 'room-202',       name: 'Room 202',                type: 'academic',x: 1160,y: 230, w: 50, h: 200 },
+
+      // Right wing bottom hallway rooms
+      { id: 'room-211',       name: 'Room 211',                type: 'academic',x: 580, y: 470, w: 100, h: 130 },
+      { id: 'room-210',       name: 'Room 210',                type: 'academic',x: 680, y: 470, w: 100, h: 130 },
+      { id: 'room-208',       name: 'Room 208',                type: 'academic',x: 780, y: 470, w: 100, h: 130 },
+      { id: 'room-206',       name: 'Room 206',                type: 'academic',x: 880, y: 470, w: 100, h: 130 },
+      { id: 'room-204',       name: 'Room 204',                type: 'academic',x: 980, y: 470, w: 100, h: 130 },
+      { id: 'room-201',       name: 'Room 201',                type: 'academic',x: 1080,y: 470, w: 110, h: 130 },
+
+      // Emergency exits
+      { id: 'emerg-exit-r',   name: 'Emergency Exit',          type: 'gate', label: 'EMERGENCY EXIT', x: 580, y: 200, w: 110, h: 20 },
+      { id: 'emerg-exit-b',   name: 'Emergency Exit',          type: 'gate', label: 'EMERGENCY EXIT', x: 1130, y: 600, w: 80, h: 20 },
+    ],
+  },
+};
+
+const TYPE_COLORS = {
+  admin:    { fill: '#1A4F2F', stroke: '#FFD24D', text: '#FFFFFF' },
+  academic: { fill: '#143B26', stroke: '#3D7A5A', text: '#E4F0E8' },
+  lab:      { fill: '#1B3A5C', stroke: '#4A82C9', text: '#E5EFF9' },
+  library:  { fill: '#3A2A5C', stroke: '#8C6BD0', text: '#EDE5F9' },
+  support:  { fill: '#3F3024', stroke: '#7C6048', text: '#EFE5DC' },
+  service:  { fill: '#262626', stroke: '#5A5A5A', text: '#B0B0B0' },
+  public:   { fill: '#1A2D40', stroke: '#3D6080', text: '#D8E5F0' },
+  gate:     { fill: '#FFD24D', stroke: '#E0A91E', text: '#0E2A1A' },
+};
+
+let CURRENT_FLOOR = 'ground';
+
 async function renderMap() {
-  if (!STATE.cache.buildings) {
-    const { buildings } = await api('/api/public/buildings');
-    STATE.cache.buildings = buildings;
-  }
+  renderFloorPlan(CURRENT_FLOOR);
 }
 
-async function selectBuilding(id) {
-  await renderMap();
-  document.querySelectorAll('.map-building').forEach(b => b.classList.remove('is-selected'));
-  document.querySelector(`[data-bldg="${id}"]`)?.classList.add('is-selected');
+function switchFloor(floor) {
+  CURRENT_FLOOR = floor;
+  document.querySelectorAll('.floor-btn').forEach(b => b.classList.toggle('is-active', b.dataset.floor === floor));
+  renderFloorPlan(floor);
+}
 
-  const b = STATE.cache.buildings[id];
-  if (!b) return;
+function renderFloorPlan(floorId) {
+  const floor = FLOORS[floorId];
+  if (!floor) return;
+  const svg = document.getElementById('floorPlan');
+
+  const parts = [];
+
+  // Background
+  parts.push(`<rect width="1210" height="620" fill="#0A1A12"/>`);
+
+  // Subtle grid
+  parts.push(`<defs>
+    <pattern id="fpGrid" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.025)" stroke-width="1"/>
+    </pattern>
+  </defs>`);
+  parts.push(`<rect width="1210" height="620" fill="url(#fpGrid)"/>`);
+
+  // Outer building outline (approximate L-shape)
+  // Main rectangle
+  parts.push(`<rect x="5" y="5" width="1200" height="610" rx="4" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="2"/>`);
+
+  // Hallway base (lighter floor)
+  parts.push(`<rect x="155" y="400" width="1050" height="35" fill="rgba(255,255,255,0.04)"/>`);
+  parts.push(`<rect x="150" y="20" width="40" height="590" fill="rgba(255,255,255,0.04)"/>`);
+  if (floorId === 'second') {
+    parts.push(`<rect x="155" y="430" width="1050" height="40" fill="rgba(255,255,255,0.04)"/>`);
+  }
+
+  // Rooms
+  for (const r of floor.rooms) {
+    const c = TYPE_COLORS[r.type] || TYPE_COLORS.support;
+    const highlightClass = r.isKiosk ? 'is-kiosk' : (r.isHighlight ? 'is-highlight' : '');
+    const strokeWidth = r.isKiosk ? 3 : 1.5;
+    const stroke = r.isKiosk ? '#FFD24D' : c.stroke;
+    parts.push(`
+      <g class="room ${highlightClass}" data-room="${r.id}" onclick="selectRoom('${r.id}')">
+        <rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="3"
+              fill="${c.fill}" stroke="${stroke}" stroke-width="${strokeWidth}"/>
+        ${roomLabel(r, c.text)}
+        ${r.isKiosk ? `<circle cx="${r.x + r.w - 12}" cy="${r.y + 12}" r="6" fill="#FFD24D"/>` : ''}
+      </g>
+    `);
+  }
+
+  // Floor label
+  parts.push(`<text x="1200" y="600" text-anchor="end" fill="rgba(255,210,77,0.4)" font-size="12" font-weight="700" letter-spacing="2">${floor.label}</text>`);
+
+  // North compass
+  parts.push(`
+    <g transform="translate(1150, 50)">
+      <circle r="22" fill="rgba(0,0,0,0.5)" stroke="#FFD24D" stroke-width="1.5"/>
+      <path d="M 0 -15 L 5 0 L 0 3 L -5 0 Z" fill="#E53935"/>
+      <path d="M 0 15 L 5 0 L 0 -3 L -5 0 Z" fill="white"/>
+      <text x="0" y="-26" text-anchor="middle" fill="#FFD24D" font-size="11" font-weight="700">N</text>
+    </g>
+  `);
+
+  svg.innerHTML = parts.join('');
+}
+
+function roomLabel(r, textColor) {
+  const cx = r.x + r.w / 2;
+  const cy = r.y + r.h / 2;
+  const label = r.label || r.shortName || r.name;
+
+  // Adapt label size based on room size
+  let fontSize = 10;
+  if (r.w >= 130 && r.h >= 80) fontSize = 13;
+  if (r.w >= 200 && r.h >= 100) fontSize = 15;
+  if (r.type === 'gate') fontSize = Math.min(13, fontSize + 2);
+
+  // Wrap long labels into 2 lines
+  const words = label.split(' ');
+  let lines = [label];
+  if (words.length > 2 && r.w < 160) {
+    const mid = Math.ceil(words.length / 2);
+    lines = [words.slice(0, mid).join(' '), words.slice(mid).join(' ')];
+  }
+
+  const lineHeight = fontSize + 2;
+  const totalH = lines.length * lineHeight;
+  const startY = cy - totalH / 2 + fontSize;
+
+  return lines.map((line, i) => `
+    <text x="${cx}" y="${startY + i * lineHeight}" text-anchor="middle"
+          fill="${textColor}" font-size="${fontSize}" font-weight="${r.type === 'gate' ? 700 : 600}"
+          pointer-events="none">${escapeHtml(line)}</text>
+  `).join('');
+}
+
+function selectRoom(id) {
+  const floor = FLOORS[CURRENT_FLOOR];
+  const room = floor.rooms.find(r => r.id === id);
+  if (!room) return;
+
+  document.querySelectorAll('.room').forEach(r => r.classList.remove('is-selected'));
+  document.querySelector(`[data-room="${id}"]`)?.classList.add('is-selected');
+
+  const typeLabel = ({
+    admin: 'Administrative', academic: 'Academic', lab: 'Laboratory',
+    library: 'Library', support: 'Support Office', service: 'Service Area',
+    public: 'Common Area', gate: 'Entrance / Exit',
+  })[room.type] || 'Room';
+
   const side = document.getElementById('mapSide');
   side.innerHTML = `
     <div class="map-side-content">
-      <span class="bldg-cat">${b.category}</span>
-      <h2>${b.name}</h2>
-      <p class="bldg-desc">${b.desc}</p>
-      <h4>Offices and Rooms</h4>
-      <div class="bldg-offices">
-        ${b.offices.map(o => `
-          <div class="bldg-office">
-            <div class="bldg-office-name">${o.name}</div>
-            <div class="bldg-office-room">${o.room}</div>
-          </div>
-        `).join('')}
-      </div>
+      <span class="bldg-cat">${typeLabel} . ${floor.name}</span>
+      <h2>${escapeHtml(room.name)}</h2>
+      <p class="bldg-desc">${escapeHtml(getRoomDesc(room))}</p>
+      ${room.offices ? `
+        <h4>What is inside</h4>
+        <div class="bldg-offices">
+          ${room.offices.map(o => `
+            <div class="bldg-office">
+              <div class="bldg-office-name">${escapeHtml(o.name)}</div>
+              <div class="bldg-office-room">${escapeHtml(o.room)}</div>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+      <h4>Directions from Main Entrance</h4>
+      <p class="bldg-desc">${escapeHtml(getDirections(room))}</p>
     </div>
   `;
+}
+
+function getRoomDesc(room) {
+  const descs = {
+    'registrar': 'Office of the University Registrar. Request academic documents like Transcript of Records, Certificate of Enrollment, and Certificate of Grades here.',
+    'osas': 'Office of Student Affairs and Services. Issues Good Moral Certificates, processes student clearance, and handles scholarships and student concerns.',
+    'accounting': 'University Cashier and Accounting Office. Pay tuition, miscellaneous fees, and document request fees here.',
+    'admin-office': 'Main administrative office of the campus. Houses the Campus Director and other key administrative functions.',
+    'it-dept': 'Department of Information Technology. Faculty offices and operations for the Computer Science and IT programs.',
+    'library': 'Main University Library. Quiet study, references, and computer stations.',
+    'lib-ext': 'Library Extension area. Additional study space and reference materials.',
+    'computer-lab': 'Computer Laboratory 104-B for CS and IT classes.',
+    'new-lab-1': 'New Computer Laboratory 1. Used for major IT subjects.',
+    'new-lab-2': 'New Computer Laboratory 2. Used for major IT subjects.',
+    'chem-lab': 'Chemistry Laboratory for science classes.',
+    'cold-kitchen': 'HRM Cold Kitchen Laboratory for Hospitality Management classes.',
+    'hot-kitchen': 'HRM Hot Kitchen Laboratory for Hospitality Management classes.',
+    'housekeeping': 'Housekeeping Laboratory for Hospitality Management classes.',
+    'hotel-chabacano': 'Mock hotel space used for HRM laboratory classes.',
+    'room-215': 'Science Laboratory on the second floor.',
+    'arts-sciences': 'Department of Arts and Sciences. Faculty offices.',
+    'teacher-ed': 'Department of Teacher Education and Languages. Faculty offices.',
+    'records-room': 'Storage of official university records.',
+    'main-gate': 'Main entrance to the building from the campus grounds.',
+  };
+  if (descs[room.id]) return descs[room.id];
+  if (room.type === 'academic') return 'Classroom used for lectures and academic sessions. Check your schedule for current class assignments.';
+  if (room.type === 'service') return 'Service area. Used by maintenance and operations staff.';
+  if (room.type === 'support') return 'Support office for campus operations.';
+  if (room.type === 'gate') return 'Building entrance or exit point.';
+  return `${room.name}. Part of the CvSU Cavite City Main Building.`;
+}
+
+function getDirections(room) {
+  const floor = FLOORS[CURRENT_FLOOR];
+  let direction = '';
+  if (CURRENT_FLOOR === 'second') {
+    direction += 'Go up the stairs near the main lobby to the second floor. ';
+  }
+  if (room.x < 200) direction += 'The room is on the left wing of the building.';
+  else if (room.x > 800) direction += 'The room is on the right wing of the building.';
+  else direction += 'The room is in the central part of the building.';
+
+  if (room.y < 250) direction += ' It is toward the back side, away from the main entrance.';
+  else if (room.y > 400) direction += ' It is near the main entrance and front hallway.';
+  else direction += ' It is along the main hallway.';
+  return direction;
+}
+
+function focusRoom(id) {
+  // Find which floor the room is on
+  for (const fid of ['ground', 'second']) {
+    if (FLOORS[fid].rooms.find(r => r.id === id)) {
+      if (CURRENT_FLOOR !== fid) switchFloor(fid);
+      setTimeout(() => selectRoom(id), 100);
+      return;
+    }
+  }
 }
 
 async function renderAnnouncements() {

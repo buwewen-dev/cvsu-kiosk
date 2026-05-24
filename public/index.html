@@ -205,128 +205,26 @@
     </header>
 
     <div class="map-wrap">
-      <div class="map-canvas-wrap">
-        <svg viewBox="0 0 1100 620" class="map-svg" id="campusMap">
-          <!-- Background grass -->
-          <rect width="1100" height="620" fill="#0F2A1A"/>
-          <pattern id="grass" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
-            <circle cx="2" cy="2" r="1" fill="#163E2A" opacity="0.6"/>
-            <circle cx="12" cy="14" r="1" fill="#163E2A" opacity="0.4"/>
-          </pattern>
-          <rect width="1100" height="620" fill="url(#grass)"/>
-
-          <!-- Road -->
-          <path d="M 0 320 L 1100 320" stroke="#3a3a3a" stroke-width="50" fill="none"/>
-          <path d="M 0 320 L 1100 320" stroke="#FFD24D" stroke-width="2" stroke-dasharray="20 15" fill="none"/>
-
-          <!-- Path -->
-          <path d="M 550 100 L 550 580" stroke="#8a7a5a" stroke-width="20" fill="none"/>
-          <path d="M 200 200 L 900 200" stroke="#8a7a5a" stroke-width="14" fill="none" opacity="0.7"/>
-          <path d="M 200 460 L 900 460" stroke="#8a7a5a" stroke-width="14" fill="none" opacity="0.7"/>
-
-          <!-- Trees -->
-          <g class="map-trees">
-            <circle cx="120" cy="120" r="22" fill="#1F5A35"/>
-            <circle cx="120" cy="120" r="14" fill="#2D7A48"/>
-            <circle cx="980" cy="120" r="22" fill="#1F5A35"/>
-            <circle cx="980" cy="120" r="14" fill="#2D7A48"/>
-            <circle cx="120" cy="500" r="22" fill="#1F5A35"/>
-            <circle cx="120" cy="500" r="14" fill="#2D7A48"/>
-            <circle cx="980" cy="500" r="22" fill="#1F5A35"/>
-            <circle cx="980" cy="500" r="14" fill="#2D7A48"/>
-            <circle cx="450" cy="540" r="18" fill="#1F5A35"/>
-            <circle cx="650" cy="540" r="18" fill="#1F5A35"/>
-          </g>
-
-          <!-- Buildings (clickable) -->
-          <g class="map-building" data-bldg="admin" onclick="selectBuilding('admin')">
-            <rect x="200" y="80" width="220" height="140" rx="6" fill="#2C5A8A" stroke="#FFD24D" stroke-width="2"/>
-            <rect x="220" y="100" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="260" y="100" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="300" y="100" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="340" y="100" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="380" y="100" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="220" y="140" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="260" y="140" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="300" y="140" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="340" y="140" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="380" y="140" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="290" y="180" width="40" height="40" fill="#0E5732"/>
-            <text x="310" y="55" text-anchor="middle" fill="white" font-size="16" font-weight="700">Administration</text>
-            <text x="310" y="72" text-anchor="middle" fill="#FFD24D" font-size="12">Registrar . OSAS</text>
-          </g>
-
-          <g class="map-building" data-bldg="academic" onclick="selectBuilding('academic')">
-            <rect x="640" y="80" width="240" height="140" rx="6" fill="#0E5732" stroke="#FFD24D" stroke-width="2"/>
-            <rect x="660" y="100" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="700" y="100" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="740" y="100" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="780" y="100" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="820" y="100" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="660" y="140" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="700" y="140" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="740" y="140" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="780" y="140" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="820" y="140" width="30" height="30" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="740" y="180" width="40" height="40" fill="#FFD24D"/>
-            <text x="760" y="55" text-anchor="middle" fill="white" font-size="16" font-weight="700">IT Building</text>
-            <text x="760" y="72" text-anchor="middle" fill="#FFD24D" font-size="12">CS . IT . Lab Rooms</text>
-          </g>
-
-          <g class="map-building" data-bldg="cashier" onclick="selectBuilding('cashier')">
-            <rect x="200" y="380" width="180" height="110" rx="6" fill="#E53935" stroke="#FFD24D" stroke-width="2"/>
-            <rect x="220" y="400" width="25" height="25" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="255" y="400" width="25" height="25" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="290" y="400" width="25" height="25" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="325" y="400" width="25" height="25" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="220" y="435" width="25" height="25" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="255" y="435" width="25" height="25" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="290" y="435" width="25" height="25" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="325" y="435" width="25" height="25" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="265" y="455" width="40" height="35" fill="#0E5732"/>
-            <text x="290" y="370" text-anchor="middle" fill="white" font-size="15" font-weight="700">Cashier</text>
-          </g>
-
-          <g class="map-building" data-bldg="library" onclick="selectBuilding('library')">
-            <rect x="450" y="380" width="200" height="110" rx="6" fill="#FB8C00" stroke="#FFD24D" stroke-width="2"/>
-            <rect x="470" y="400" width="25" height="25" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="505" y="400" width="25" height="25" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="540" y="400" width="25" height="25" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="575" y="400" width="25" height="25" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="610" y="400" width="25" height="25" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="470" y="435" width="25" height="25" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="505" y="435" width="25" height="25" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="540" y="435" width="25" height="25" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="575" y="435" width="25" height="25" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="610" y="435" width="25" height="25" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="530" y="455" width="40" height="35" fill="#0E5732"/>
-            <text x="550" y="370" text-anchor="middle" fill="white" font-size="15" font-weight="700">Library</text>
-          </g>
-
-          <g class="map-building" data-bldg="gym" onclick="selectBuilding('gym')">
-            <rect x="720" y="380" width="180" height="110" rx="6" fill="#8E24AA" stroke="#FFD24D" stroke-width="2"/>
-            <path d="M 720 380 L 810 350 L 900 380" fill="#5E1880" stroke="#FFD24D" stroke-width="2"/>
-            <rect x="740" y="410" width="35" height="35" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="785" y="410" width="35" height="35" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="830" y="410" width="35" height="35" rx="2" fill="#FFD24D" opacity="0.8"/>
-            <rect x="800" y="455" width="40" height="35" fill="#0E5732"/>
-            <text x="810" y="370" text-anchor="middle" fill="white" font-size="15" font-weight="700">Gymnasium</text>
-          </g>
-
-          <!-- Gate -->
-          <g>
-            <rect x="520" y="570" width="60" height="40" fill="#FFD24D"/>
-            <text x="550" y="595" text-anchor="middle" fill="#0E5732" font-size="12" font-weight="700">MAIN GATE</text>
-          </g>
-
-          <!-- North compass -->
-          <g transform="translate(1030, 60)">
-            <circle r="30" fill="rgba(0,0,0,0.4)" stroke="#FFD24D" stroke-width="2"/>
-            <path d="M 0 -22 L 6 0 L 0 4 L -6 0 Z" fill="#E53935"/>
-            <path d="M 0 22 L 6 0 L 0 -4 L -6 0 Z" fill="white"/>
-            <text x="0" y="-32" text-anchor="middle" fill="#FFD24D" font-size="12" font-weight="700">N</text>
-          </g>
-        </svg>
+      <div class="map-main">
+        <div class="floor-switch">
+          <button class="floor-btn is-active" data-floor="ground" onclick="switchFloor('ground')">
+            <span class="floor-btn-num">1</span>
+            <span class="floor-btn-label">Ground Floor</span>
+          </button>
+          <button class="floor-btn" data-floor="second" onclick="switchFloor('second')">
+            <span class="floor-btn-num">2</span>
+            <span class="floor-btn-label">Second Floor</span>
+          </button>
+          <div class="floor-legend">
+            <span class="legend-item"><span class="legend-dot" style="background:#FFD24D"></span>Kiosk Office</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#0E5732"></span>Academic</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#1E88E5"></span>Lab</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#888"></span>Support</span>
+          </div>
+        </div>
+        <div class="map-canvas-wrap">
+          <svg viewBox="0 0 1210 620" class="map-svg" id="floorPlan"></svg>
+        </div>
       </div>
 
       <aside class="map-side" id="mapSide">
@@ -334,8 +232,14 @@
           <div class="map-side-empty-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
           </div>
-          <h3>Tap any building</h3>
-          <p>Select a building on the map to see what offices and rooms are inside.</p>
+          <h3>Tap any room</h3>
+          <p>Select a room on the floor plan to see what office or service is inside, the room number, and how to find it.</p>
+          <div class="map-quick">
+            <div class="map-quick-title">Looking for a kiosk office?</div>
+            <button class="map-quick-btn" onclick="focusRoom('registrar')">Registrar's Office</button>
+            <button class="map-quick-btn" onclick="focusRoom('osas')">OSAS</button>
+            <button class="map-quick-btn" onclick="focusRoom('accounting')">Cashier / Accounting</button>
+          </div>
         </div>
       </aside>
     </div>
