@@ -646,17 +646,183 @@ html, body {
 .toast--error { background: var(--c-red); }
 .toast--success { background: var(--c-success); }
 
-/* ============ FLOOR PLAN EDITOR ============ */
-.fp-editor {
-  display: grid;
-  grid-template-columns: 1fr 1.1fr;
-  gap: 20px;
+/* ============ FLOOR PLAN EDITOR (Visual) ============ */
+.fp-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
 }
-.fp-editor-side {
+.fp-toolbar .floor-switch {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  background: white;
+  border: 1px solid var(--c-line);
+  border-radius: 10px;
+}
+.fp-toolbar .floor-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--c-text);
+}
+.fp-toolbar .floor-btn.is-active {
+  background: var(--c-green);
+  color: white !important;
+}
+.fp-toolbar .floor-btn-num {
+  width: 22px; height: 22px;
+  background: var(--c-bg); color: var(--c-green);
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Space Grotesk', monospace;
+  font-weight: 700;
+  font-size: 12px;
+}
+.fp-toolbar .floor-btn.is-active .floor-btn-num {
+  background: white; color: var(--c-green);
+}
+.fp-meta {
+  font-size: 11px;
+  color: var(--c-mute);
+  font-family: 'Space Grotesk', monospace;
+  letter-spacing: 0.04em;
+  margin-left: auto;
+}
+
+.fp-edit-grid {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 16px;
+  align-items: flex-start;
+}
+.fp-canvas-wrap {
+  background: #050E08;
+  border: 1px solid var(--c-line);
+  border-radius: 14px;
+  padding: 10px;
+  position: relative;
+}
+.fp-edit-canvas {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 8px;
+  cursor: default;
+  user-select: none;
+  touch-action: none;
+}
+.fp-edit-canvas .room-body { cursor: grab; }
+.fp-edit-canvas .room-body:active,
+.fp-edit-canvas .room-body.is-dragging { cursor: grabbing; }
+.fp-edit-canvas .room-resize { cursor: nwse-resize; }
+.fp-edit-canvas .room.is-selected .room-rect {
+  stroke: #FFD24D !important;
+  stroke-width: 3 !important;
+  filter: drop-shadow(0 0 8px rgba(255,210,77,0.8));
+}
+
+.fp-side-panel {
+  background: white;
+  border: 1px solid var(--c-line);
+  border-radius: 14px;
+  padding: 22px;
+  box-shadow: var(--shadow-sm);
+  position: sticky;
+  top: 20px;
+  max-height: calc(100vh - 60px);
+  overflow-y: auto;
+}
+.fp-side-empty {
+  text-align: center;
+  padding: 24px 8px;
+}
+.fp-side-empty-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: var(--c-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  color: var(--c-green);
+}
+.fp-side-empty-icon svg { width: 30px; height: 30px; }
+.fp-side-empty h3 { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
+.fp-side-empty p { font-size: 13px; color: var(--c-mute); line-height: 1.5; margin-bottom: 18px; }
+.fp-quick-tips {
+  background: var(--c-bg);
+  border-radius: 10px;
+  padding: 14px;
+  text-align: left;
+}
+.fp-tip {
+  font-size: 12px;
+  color: var(--c-mute);
+  line-height: 1.5;
+  padding: 4px 0;
+}
+.fp-tip b { color: var(--c-text); font-weight: 700; }
+
+.fp-prop {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
+.fp-prop-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--c-line);
+}
+.fp-prop-title { font-size: 13px; color: var(--c-mute); font-weight: 600; margin-bottom: 2px; }
+.fp-prop-name { font-size: 18px; font-weight: 800; letter-spacing: -0.01em; }
+.fp-prop-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.fp-prop-row .field { margin-bottom: 0; }
+.fp-prop .field > span { font-size: 11px; }
+.fp-prop .field input,
+.fp-prop .field select,
+.fp-prop .field textarea {
+  padding: 9px 12px;
+  font-size: 13px;
+}
+.fp-num-input { font-family: 'Space Grotesk', monospace; }
+.fp-prop-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--c-line);
+}
+.fp-prop-actions .btn-danger {
+  background: white;
+  color: var(--c-red);
+  border: 1px solid var(--c-red);
+}
+.fp-prop-actions .btn-danger:hover { background: var(--c-red); color: white; opacity: 1; }
+
+.fp-status.is-ok { color: var(--c-success); }
+.fp-status.is-error { color: var(--c-red); }
+
 .fp-textarea {
   width: 100%;
   min-height: 380px;

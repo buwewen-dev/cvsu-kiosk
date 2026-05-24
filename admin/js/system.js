@@ -293,9 +293,12 @@ async function deleteAnnouncement(id) {
   } catch (e) { toast(e.message, 'error'); }
 }
 
-// ============ FLOOR PLAN ============
+// ============ FLOOR PLAN (Visual Drag-and-Drop Editor) ============
 let FP_DATA = null;
-let FP_PREVIEW_FLOOR = 'ground';
+let FP_EDITOR_FLOOR = 'ground';
+let FP_SELECTED_ID = null;
+let FP_DRAG = null; // { type, roomId, startSvg, origX, origY, origW, origH }
+let FP_DIRTY = false;
 
 const FP_TYPE_COLORS = {
   admin:    { fill: '#1A4F2F', stroke: '#FFD24D', text: '#FFFFFF' },
@@ -311,135 +314,402 @@ const FP_TYPE_COLORS = {
 async function loadFloorPlan() {
   try {
     const { floors } = await api('/api/public/floor-plan');
-    if (floors) {
-      FP_DATA = floors;
-    } else {
-      // Fall back: fetch defaults from kiosk source. For simplicity, use a minimal shell.
-      FP_DATA = await loadDefaultFloorPlan();
-    }
-    document.getElementById('fpEditor').value = JSON.stringify(FP_DATA, null, 2);
-    setFpStatus('Loaded current floor plan.', 'ok');
-    renderFpPreview();
+    FP_DATA = floors || await loadDefaultFloorPlan();
+    FP_DIRTY = false;
+    setFpStatus('Ready. Drag rooms to move, drag the corner to resize.', 'ok');
+    renderEditorCanvas();
   } catch (e) {
     toast('Failed to load floor plan: ' + e.message, 'error');
   }
 }
 
 async function loadDefaultFloorPlan() {
-  // The kiosk holds the defaults. We load app.js text and extract DEFAULT_FLOORS via a clever parse.
-  // Simpler: fetch the default by re-fetching after delete (server returns null then we use a stub).
-  // For convenience, we ship a built-in copy of the same defaults here.
   const res = await fetch('/js/app.js');
   const src = await res.text();
   const m = src.match(/const DEFAULT_FLOORS = (\{[\s\S]+?\n\});/);
-  if (!m) return { ground: { name: 'Ground', rooms: [] }, second: { name: 'Second', rooms: [] } };
+  if (!m) return { ground: { name: 'Ground Floor', label: 'GROUND FLOOR PLAN', rooms: [] }, second: { name: 'Second Floor', label: 'SECOND FLOOR PLAN', rooms: [] } };
   try {
     return Function('"use strict"; return (' + m[1] + ')')();
   } catch {
-    return { ground: { name: 'Ground', rooms: [] }, second: { name: 'Second', rooms: [] } };
+    return { ground: { name: 'Ground Floor', label: 'GROUND FLOOR PLAN', rooms: [] }, second: { name: 'Second Floor', label: 'SECOND FLOOR PLAN', rooms: [] } };
   }
 }
 
 function setFpStatus(msg, kind) {
   const el = document.getElementById('fpStatus');
+  if (!el) return;
   el.textContent = msg;
   el.className = 'fp-status' + (kind === 'ok' ? ' is-ok' : kind === 'error' ? ' is-error' : '');
 }
 
-function switchPreviewFloor(floor) {
-  FP_PREVIEW_FLOOR = floor;
-  document.querySelectorAll('.fp-preview-wrap .floor-btn').forEach(b => b.classList.toggle('is-active', b.dataset.floor === floor));
-  renderFpPreview();
+function markDirty() {
+  FP_DIRTY = true;
+  setFpStatus('You have unsaved changes. Click Save Changes.', '');
 }
 
-function validateFloorPlan() {
-  const text = document.getElementById('fpEditor').value;
-  try {
-    const parsed = JSON.parse(text);
-    if (!parsed.ground || !parsed.second) throw new Error('Missing ground or second floor.');
-    if (!Array.isArray(parsed.ground.rooms) || !Array.isArray(parsed.second.rooms)) throw new Error('Each floor needs a rooms array.');
-    FP_DATA = parsed;
-    setFpStatus('Valid JSON. ' + parsed.ground.rooms.length + ' ground rooms, ' + parsed.second.rooms.length + ' second rooms.', 'ok');
-    renderFpPreview();
-    return true;
-  } catch (e) {
-    setFpStatus('Invalid: ' + e.message, 'error');
-    return false;
+function switchEditorFloor(floor) {
+  FP_EDITOR_FLOOR = floor;
+  FP_SELECTED_ID = null;
+  document.querySelectorAll('.fp-toolbar .floor-btn').forEach(b => b.classList.toggle('is-active', b.dataset.floor === floor));
+  renderEditorCanvas();
+  renderSidePanel();
+}
+
+function renderEditorCanvas() {
+  if (!FP_DATA) return;
+  const floor = FP_DATA[FP_EDITOR_FLOOR];
+  if (!floor) return;
+  const svg = document.getElementById('fpEditCanvas');
+  if (!svg) return;
+
+  const parts = [];
+  parts.push(`<defs>
+    <pattern id="fpEdGrid" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="1"/></pattern>
+    <pattern id="fpEdFloor" x="0" y="0" width="14" height="14" patternUnits="userSpaceOnUse"><rect width="14" height="14" fill="#0F2418"/><path d="M 14 0 L 0 0 0 14" fill="none" stroke="rgba(255,255,255,0.025)" stroke-width="1"/></pattern>
+  </defs>`);
+  parts.push(`<rect width="1210" height="620" fill="#0A1A12"/>`);
+  parts.push(`<rect width="1210" height="620" fill="url(#fpEdGrid)"/>`);
+
+  if (floor.outline) parts.push(`<path d="${floor.outline}" fill="url(#fpEdFloor)" stroke="rgba(255,210,77,0.4)" stroke-width="2.5"/>`);
+  if (Array.isArray(floor.hallways)) {
+    for (const h of floor.hallways) {
+      parts.push(`<rect x="${h.x}" y="${h.y}" width="${h.w}" height="${h.h}" fill="rgba(255,255,255,0.04)" pointer-events="none"/>`);
+    }
   }
+
+  for (const r of floor.rooms || []) {
+    const c = FP_TYPE_COLORS[r.type] || FP_TYPE_COLORS.support;
+    const stroke = r.isKiosk ? '#FFD24D' : c.stroke;
+    const sw = r.isKiosk ? 3 : 1.5;
+    const isSel = FP_SELECTED_ID === r.id;
+    parts.push(`<g class="room ${isSel ? 'is-selected' : ''}" data-room-id="${escapeHtml(r.id)}">`);
+    parts.push(`<rect class="room-rect room-body" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="3" fill="${c.fill}" stroke="${stroke}" stroke-width="${sw}" data-room-id="${escapeHtml(r.id)}"/>`);
+    const label = r.label || r.shortName || r.name || r.id;
+    if (label) {
+      const cx = r.x + r.w / 2;
+      const cy = r.y + r.h / 2;
+      const fs = r.w >= 150 ? 12 : (r.w >= 80 ? 10 : 8);
+      parts.push(`<text x="${cx}" y="${cy + fs/3}" text-anchor="middle" fill="${c.text}" font-size="${fs}" font-weight="600" pointer-events="none">${escapeHtml(label)}</text>`);
+    }
+    if (r.isKiosk) parts.push(`<circle cx="${r.x + r.w - 10}" cy="${r.y + 10}" r="5" fill="#FFD24D" pointer-events="none"/>`);
+    if (isSel) {
+      // Resize handle in bottom-right
+      const hx = r.x + r.w - 8;
+      const hy = r.y + r.h - 8;
+      parts.push(`<rect class="room-resize" x="${hx}" y="${hy}" width="14" height="14" rx="3" fill="#FFD24D" stroke="white" stroke-width="2" data-room-id="${escapeHtml(r.id)}"/>`);
+    }
+    parts.push(`</g>`);
+  }
+
+  svg.innerHTML = parts.join('');
+  attachCanvasEvents();
+}
+
+function attachCanvasEvents() {
+  const svg = document.getElementById('fpEditCanvas');
+  if (!svg) return;
+  svg.onmousedown = onCanvasDown;
+  svg.ontouchstart = onCanvasTouch;
+}
+
+function clientToSvg(svg, clientX, clientY) {
+  const pt = svg.createSVGPoint();
+  pt.x = clientX;
+  pt.y = clientY;
+  const ctm = svg.getScreenCTM();
+  if (!ctm) return { x: 0, y: 0 };
+  const transformed = pt.matrixTransform(ctm.inverse());
+  return { x: transformed.x, y: transformed.y };
+}
+
+function onCanvasDown(ev) {
+  const svg = ev.currentTarget;
+  const target = ev.target;
+  const roomId = target.getAttribute && target.getAttribute('data-room-id');
+  if (!roomId) {
+    // Clicked empty area: deselect
+    FP_SELECTED_ID = null;
+    renderEditorCanvas();
+    renderSidePanel();
+    return;
+  }
+
+  const isHandle = target.classList.contains('room-resize');
+  const room = (FP_DATA[FP_EDITOR_FLOOR].rooms || []).find(r => r.id === roomId);
+  if (!room) return;
+
+  // Select this room
+  FP_SELECTED_ID = roomId;
+  renderEditorCanvas();
+  renderSidePanel();
+
+  const start = clientToSvg(svg, ev.clientX, ev.clientY);
+  FP_DRAG = {
+    type: isHandle ? 'resize' : 'move',
+    roomId,
+    startSvg: start,
+    origX: room.x, origY: room.y, origW: room.w, origH: room.h,
+    shift: ev.shiftKey,
+  };
+  document.addEventListener('mousemove', onDragMove);
+  document.addEventListener('mouseup', onDragEnd);
+  ev.preventDefault();
+}
+
+function onCanvasTouch(ev) {
+  if (!ev.touches || ev.touches.length === 0) return;
+  const t = ev.touches[0];
+  onCanvasDown({ ...ev, clientX: t.clientX, clientY: t.clientY, currentTarget: ev.currentTarget, target: ev.target, preventDefault: () => ev.preventDefault(), shiftKey: false });
+  document.addEventListener('touchmove', onTouchMove, { passive: false });
+  document.addEventListener('touchend', onTouchEnd);
+}
+
+function onTouchMove(ev) {
+  if (!ev.touches || ev.touches.length === 0) return;
+  const t = ev.touches[0];
+  onDragMove({ clientX: t.clientX, clientY: t.clientY, shiftKey: false });
+  ev.preventDefault();
+}
+function onTouchEnd() {
+  document.removeEventListener('touchmove', onTouchMove);
+  document.removeEventListener('touchend', onTouchEnd);
+  onDragEnd();
+}
+
+function onDragMove(ev) {
+  if (!FP_DRAG) return;
+  const svg = document.getElementById('fpEditCanvas');
+  const cur = clientToSvg(svg, ev.clientX, ev.clientY);
+  const dx = cur.x - FP_DRAG.startSvg.x;
+  const dy = cur.y - FP_DRAG.startSvg.y;
+  const room = FP_DATA[FP_EDITOR_FLOOR].rooms.find(r => r.id === FP_DRAG.roomId);
+  if (!room) return;
+  const snap = ev.shiftKey ? 10 : 1;
+  const snapVal = (v) => Math.round(v / snap) * snap;
+
+  if (FP_DRAG.type === 'move') {
+    room.x = Math.max(0, Math.min(1210 - room.w, snapVal(FP_DRAG.origX + dx)));
+    room.y = Math.max(0, Math.min(620 - room.h, snapVal(FP_DRAG.origY + dy)));
+  } else {
+    room.w = Math.max(20, Math.min(1210 - room.x, snapVal(FP_DRAG.origW + dx)));
+    room.h = Math.max(20, Math.min(620 - room.y, snapVal(FP_DRAG.origH + dy)));
+  }
+  markDirty();
+  renderEditorCanvas();
+  syncPositionInputs(room);
+}
+
+function onDragEnd() {
+  if (!FP_DRAG) return;
+  FP_DRAG = null;
+  document.removeEventListener('mousemove', onDragMove);
+  document.removeEventListener('mouseup', onDragEnd);
+}
+
+function renderSidePanel() {
+  const side = document.getElementById('fpSidePanel');
+  if (!side) return;
+  if (!FP_SELECTED_ID) {
+    side.innerHTML = `
+      <div class="fp-side-empty">
+        <div class="fp-side-empty-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 12h18M12 3v18"/></svg>
+        </div>
+        <h3>Pick a room to edit</h3>
+        <p>Click any room on the floor plan to change its name, type, or position. Or click <b>+ Add Room</b> to create a new one.</p>
+        <div class="fp-quick-tips">
+          <div class="fp-tip"><b>Drag</b> the room body to move it</div>
+          <div class="fp-tip"><b>Drag</b> the gold corner handle to resize</div>
+          <div class="fp-tip"><b>Hold Shift</b> while dragging to snap to grid (10 px = 0.5 m)</div>
+        </div>
+      </div>
+    `;
+    return;
+  }
+  const room = FP_DATA[FP_EDITOR_FLOOR].rooms.find(r => r.id === FP_SELECTED_ID);
+  if (!room) { FP_SELECTED_ID = null; renderSidePanel(); return; }
+
+  side.innerHTML = `
+    <div class="fp-prop">
+      <div class="fp-prop-head">
+        <div>
+          <div class="fp-prop-title">Editing Room</div>
+          <div class="fp-prop-name">${escapeHtml(room.name || room.id)}</div>
+        </div>
+      </div>
+
+      <label class="field"><span>Name</span><input type="text" id="fpRoomName" value="${escapeAttr(room.name || '')}"></label>
+      <label class="field"><span>Short Name (optional, for compact labels)</span><input type="text" id="fpRoomShort" value="${escapeAttr(room.shortName || '')}"></label>
+      <label class="field"><span>Label Override (optional, replaces displayed text)</span><input type="text" id="fpRoomLabel" value="${escapeAttr(room.label || '')}"></label>
+
+      <label class="field"><span>Type</span>
+        <select id="fpRoomType">
+          ${['admin','academic','lab','library','support','service','public','gate'].map(t =>
+            `<option value="${t}" ${room.type === t ? 'selected' : ''}>${t}</option>`).join('')}
+        </select>
+      </label>
+
+      <div class="fp-prop-row">
+        <label class="field"><span>X (px)</span><input class="fp-num-input" type="number" id="fpRoomX" value="${room.x}" min="0" max="1210"></label>
+        <label class="field"><span>Y (px)</span><input class="fp-num-input" type="number" id="fpRoomY" value="${room.y}" min="0" max="620"></label>
+      </div>
+      <div class="fp-prop-row">
+        <label class="field"><span>Width (px)</span><input class="fp-num-input" type="number" id="fpRoomW" value="${room.w}" min="20" max="1210"></label>
+        <label class="field"><span>Height (px)</span><input class="fp-num-input" type="number" id="fpRoomH" value="${room.h}" min="20" max="620"></label>
+      </div>
+
+      <label class="field-check"><input type="checkbox" id="fpRoomKiosk" ${room.isKiosk ? 'checked' : ''}> Kiosk office (highlighted in gold)</label>
+      <label class="field-check"><input type="checkbox" id="fpRoomHighlight" ${room.isHighlight ? 'checked' : ''}> Highlighted (slightly brighter)</label>
+
+      <div class="fp-prop-actions">
+        <button class="btn-danger" onclick="deleteRoom()">Delete Room</button>
+        <button class="btn-secondary" onclick="duplicateRoom()">Duplicate</button>
+      </div>
+    </div>
+  `;
+
+  // Wire up live inputs
+  const onPropChange = () => {
+    room.name = document.getElementById('fpRoomName').value;
+    room.shortName = document.getElementById('fpRoomShort').value || undefined;
+    room.label = document.getElementById('fpRoomLabel').value || undefined;
+    room.type = document.getElementById('fpRoomType').value;
+    room.x = parseInt(document.getElementById('fpRoomX').value) || 0;
+    room.y = parseInt(document.getElementById('fpRoomY').value) || 0;
+    room.w = parseInt(document.getElementById('fpRoomW').value) || 20;
+    room.h = parseInt(document.getElementById('fpRoomH').value) || 20;
+    room.isKiosk = document.getElementById('fpRoomKiosk').checked;
+    room.isHighlight = document.getElementById('fpRoomHighlight').checked;
+    // Strip undefined for cleanliness
+    if (!room.shortName) delete room.shortName;
+    if (!room.label) delete room.label;
+    if (!room.isKiosk) delete room.isKiosk;
+    if (!room.isHighlight) delete room.isHighlight;
+    markDirty();
+    renderEditorCanvas();
+  };
+
+  ['fpRoomName','fpRoomShort','fpRoomLabel','fpRoomType','fpRoomX','fpRoomY','fpRoomW','fpRoomH','fpRoomKiosk','fpRoomHighlight']
+    .forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('input', onPropChange);
+    });
+}
+
+function syncPositionInputs(room) {
+  const x = document.getElementById('fpRoomX');
+  const y = document.getElementById('fpRoomY');
+  const w = document.getElementById('fpRoomW');
+  const h = document.getElementById('fpRoomH');
+  if (x) x.value = room.x;
+  if (y) y.value = room.y;
+  if (w) w.value = room.w;
+  if (h) h.value = room.h;
+}
+
+function addRoom() {
+  if (!FP_DATA) return;
+  const floor = FP_DATA[FP_EDITOR_FLOOR];
+  const newId = 'room-' + Date.now().toString(36);
+  const newRoom = {
+    id: newId,
+    name: 'New Room',
+    type: 'academic',
+    x: 540, y: 280, w: 130, h: 80,
+  };
+  floor.rooms.push(newRoom);
+  FP_SELECTED_ID = newId;
+  markDirty();
+  renderEditorCanvas();
+  renderSidePanel();
+  toast('New room added. Drag to position it.', 'success');
+}
+
+function deleteRoom() {
+  if (!FP_SELECTED_ID) return;
+  const floor = FP_DATA[FP_EDITOR_FLOOR];
+  const idx = floor.rooms.findIndex(r => r.id === FP_SELECTED_ID);
+  if (idx < 0) return;
+  if (!confirm('Delete this room? This cannot be undone until you reload without saving.')) return;
+  floor.rooms.splice(idx, 1);
+  FP_SELECTED_ID = null;
+  markDirty();
+  renderEditorCanvas();
+  renderSidePanel();
+  toast('Room deleted.', 'success');
+}
+
+function duplicateRoom() {
+  if (!FP_SELECTED_ID) return;
+  const floor = FP_DATA[FP_EDITOR_FLOOR];
+  const orig = floor.rooms.find(r => r.id === FP_SELECTED_ID);
+  if (!orig) return;
+  const copy = { ...orig, id: 'room-' + Date.now().toString(36), x: orig.x + 20, y: orig.y + 20, name: orig.name + ' (copy)' };
+  floor.rooms.push(copy);
+  FP_SELECTED_ID = copy.id;
+  markDirty();
+  renderEditorCanvas();
+  renderSidePanel();
+  toast('Room duplicated.', 'success');
 }
 
 async function saveFloorPlan() {
-  if (!validateFloorPlan()) {
-    toast('Fix validation errors before saving.', 'error');
+  if (!FP_DATA || !FP_DATA.ground || !FP_DATA.second) {
+    toast('Floor plan data is incomplete.', 'error');
     return;
   }
   try {
     await api('/api/admin/floor-plan', { method: 'PUT', body: { floors: FP_DATA } });
-    toast('Floor plan saved. Kiosk will use the new layout on next refresh.', 'success');
-    setFpStatus('Saved. The kiosk picks this up automatically on next map view.', 'ok');
+    FP_DIRTY = false;
+    toast('Floor plan saved. The kiosk picks this up on the next map view.', 'success');
+    setFpStatus('Saved. ' + FP_DATA.ground.rooms.length + ' ground rooms, ' + FP_DATA.second.rooms.length + ' second rooms.', 'ok');
   } catch (e) {
     toast('Save failed: ' + e.message, 'error');
   }
 }
 
 async function resetFloorPlan() {
-  if (!confirm('Reset to the default floor plan? Any custom changes you saved will be lost.')) return;
+  if (!confirm('Reset to the default floor plan? All your customizations will be lost.')) return;
   try {
     await api('/api/admin/floor-plan', { method: 'DELETE' });
     FP_DATA = await loadDefaultFloorPlan();
-    document.getElementById('fpEditor').value = JSON.stringify(FP_DATA, null, 2);
+    FP_DIRTY = false;
+    FP_SELECTED_ID = null;
+    renderEditorCanvas();
+    renderSidePanel();
     setFpStatus('Reset to default.', 'ok');
-    renderFpPreview();
     toast('Reset to default floor plan.', 'success');
   } catch (e) {
     toast('Reset failed: ' + e.message, 'error');
   }
 }
 
-function renderFpPreview() {
-  if (!FP_DATA) return;
-  const floor = FP_DATA[FP_PREVIEW_FLOOR];
-  if (!floor) return;
-  const svg = document.getElementById('fpPreview');
-  const parts = [`<rect width="1210" height="620" fill="#0A1A12"/>`];
-  parts.push(`<defs><pattern id="fpEdGrid" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="1"/></pattern>
-  <pattern id="fpEdFloor" x="0" y="0" width="14" height="14" patternUnits="userSpaceOnUse"><rect width="14" height="14" fill="#0F2418"/><path d="M 14 0 L 0 0 0 14" fill="none" stroke="rgba(255,255,255,0.025)" stroke-width="1"/></pattern></defs>`);
-  parts.push(`<rect width="1210" height="620" fill="url(#fpEdGrid)"/>`);
-  if (floor.outline) parts.push(`<path d="${floor.outline}" fill="url(#fpEdFloor)" stroke="rgba(255,210,77,0.4)" stroke-width="2.5"/>`);
-  if (Array.isArray(floor.hallways)) {
-    for (const h of floor.hallways) {
-      parts.push(`<rect x="${h.x}" y="${h.y}" width="${h.w}" height="${h.h}" fill="rgba(255,255,255,0.04)"/>`);
-    }
+function toggleJsonView() {
+  document.getElementById('fpJsonEditor').value = JSON.stringify(FP_DATA, null, 2);
+  document.getElementById('jsonViewModal').classList.add('is-open');
+}
+function closeJsonView() {
+  document.getElementById('jsonViewModal').classList.remove('is-open');
+}
+function applyJsonView() {
+  try {
+    const parsed = JSON.parse(document.getElementById('fpJsonEditor').value);
+    if (!parsed.ground || !parsed.second) throw new Error('Missing ground or second floor.');
+    FP_DATA = parsed;
+    FP_SELECTED_ID = null;
+    markDirty();
+    renderEditorCanvas();
+    renderSidePanel();
+    closeJsonView();
+    toast('JSON applied. Remember to save.', 'success');
+  } catch (e) {
+    toast('Invalid JSON: ' + e.message, 'error');
   }
-  for (const r of floor.rooms || []) {
-    const c = FP_TYPE_COLORS[r.type] || FP_TYPE_COLORS.support;
-    const stroke = r.isKiosk ? '#FFD24D' : c.stroke;
-    const sw = r.isKiosk ? 3 : 1.5;
-    parts.push(`<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="3" fill="${c.fill}" stroke="${stroke}" stroke-width="${sw}"/>`);
-    const label = r.label || r.shortName || r.name || '';
-    if (label) {
-      const cx = r.x + r.w / 2;
-      const cy = r.y + r.h / 2;
-      const fs = r.w >= 150 ? 12 : (r.w >= 80 ? 10 : 8);
-      parts.push(`<text x="${cx}" y="${cy + fs/3}" text-anchor="middle" fill="${c.text}" font-size="${fs}" font-weight="600">${escapeHtml(label)}</text>`);
-    }
-    if (r.isKiosk) parts.push(`<circle cx="${r.x + r.w - 10}" cy="${r.y + 10}" r="5" fill="#FFD24D"/>`);
-  }
-  svg.innerHTML = parts.join('');
 }
 
-// Auto-validate on textarea change
-document.addEventListener('input', e => {
-  if (e.target && e.target.id === 'fpEditor') {
-    try {
-      FP_DATA = JSON.parse(e.target.value);
-      setFpStatus('Live preview updated. Click Save to apply on the kiosk.', 'ok');
-      renderFpPreview();
-    } catch (err) {
-      setFpStatus('Invalid JSON: ' + err.message, 'error');
-    }
-  }
-});
+function escapeAttr(s) {
+  return String(s == null ? '' : s).replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
 
 // ============ MISSION ============
 async function loadMission() {
