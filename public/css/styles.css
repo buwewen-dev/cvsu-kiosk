@@ -1612,8 +1612,47 @@ html, body {
 
 /* ============ PRINT ============ */
 @media print {
-  body { background: white; color: black; }
-  .topbar, .form-actions, .modal, .toast { display: none !important; }
-  .screen { display: block !important; opacity: 1 !important; position: static !important; }
-  .receipt-card { box-shadow: none; max-width: 100%; }
+  @page { size: auto; margin: 12mm; }
+  html, body {
+    background: white !important;
+    color: black !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  /* Hide everything by default */
+  body * { visibility: hidden !important; }
+  /* Only the receipt card and its descendants are visible */
+  .screen[data-screen="receipt"] .receipt-card,
+  .screen[data-screen="receipt"] .receipt-card * { visibility: visible !important; }
+  /* Position the receipt at the top of the page */
+  .screen[data-screen="receipt"] .receipt-card {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    right: 0 !important;
+    margin: 0 auto !important;
+    width: 100% !important;
+    max-width: 360px !important;
+    background: white !important;
+    color: black !important;
+    box-shadow: none !important;
+    border: none !important;
+    padding: 20px !important;
+  }
+  .screen[data-screen="receipt"] .receipt-card::before,
+  .screen[data-screen="receipt"] .receipt-card::after { display: none !important; }
+  /* Force receipt elements to print-friendly colors */
+  .screen[data-screen="receipt"] .receipt-title,
+  .screen[data-screen="receipt"] .receipt-ref-num,
+  .screen[data-screen="receipt"] .receipt-row-value { color: black !important; }
+  .screen[data-screen="receipt"] .receipt-row-label,
+  .screen[data-screen="receipt"] .receipt-sub,
+  .screen[data-screen="receipt"] .receipt-ref-label,
+  .screen[data-screen="receipt"] .receipt-foot { color: #444 !important; }
+  .screen[data-screen="receipt"] .receipt-check {
+    background: #0E5732 !important;
+    color: white !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
 }
