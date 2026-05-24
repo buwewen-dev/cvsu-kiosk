@@ -45,6 +45,7 @@ function showTab(name) {
   if (name === 'all-requests') loadAllRequests();
   if (name === 'announcements') loadAnnouncements();
   if (name === 'mission') loadMission();
+  if (name === 'floor-plan') loadFloorPlan();
 }
 
 // ============ OVERVIEW ============
@@ -291,6 +292,154 @@ async function deleteAnnouncement(id) {
     loadAnnouncements();
   } catch (e) { toast(e.message, 'error'); }
 }
+
+// ============ FLOOR PLAN ============
+let FP_DATA = null;
+let FP_PREVIEW_FLOOR = 'ground';
+
+const FP_TYPE_COLORS = {
+  admin:    { fill: '#1A4F2F', stroke: '#FFD24D', text: '#FFFFFF' },
+  academic: { fill: '#143B26', stroke: '#3D7A5A', text: '#E4F0E8' },
+  lab:      { fill: '#1B3A5C', stroke: '#4A82C9', text: '#E5EFF9' },
+  library:  { fill: '#3A2A5C', stroke: '#8C6BD0', text: '#EDE5F9' },
+  support:  { fill: '#3F3024', stroke: '#7C6048', text: '#EFE5DC' },
+  service:  { fill: '#262626', stroke: '#5A5A5A', text: '#B0B0B0' },
+  public:   { fill: '#1A2D40', stroke: '#3D6080', text: '#D8E5F0' },
+  gate:     { fill: '#FFD24D', stroke: '#E0A91E', text: '#0E2A1A' },
+};
+
+async function loadFloorPlan() {
+  try {
+    const { floors } = await api('/api/public/floor-plan');
+    if (floors) {
+      FP_DATA = floors;
+    } else {
+      // Fall back: fetch defaults from kiosk source. For simplicity, use a minimal shell.
+      FP_DATA = await loadDefaultFloorPlan();
+    }
+    document.getElementById('fpEditor').value = JSON.stringify(FP_DATA, null, 2);
+    setFpStatus('Loaded current floor plan.', 'ok');
+    renderFpPreview();
+  } catch (e) {
+    toast('Failed to load floor plan: ' + e.message, 'error');
+  }
+}
+
+async function loadDefaultFloorPlan() {
+  // The kiosk holds the defaults. We load app.js text and extract DEFAULT_FLOORS via a clever parse.
+  // Simpler: fetch the default by re-fetching after delete (server returns null then we use a stub).
+  // For convenience, we ship a built-in copy of the same defaults here.
+  const res = await fetch('/js/app.js');
+  const src = await res.text();
+  const m = src.match(/const DEFAULT_FLOORS = (\{[\s\S]+?\n\});/);
+  if (!m) return { ground: { name: 'Ground', rooms: [] }, second: { name: 'Second', rooms: [] } };
+  try {
+    return Function('"use strict"; return (' + m[1] + ')')();
+  } catch {
+    return { ground: { name: 'Ground', rooms: [] }, second: { name: 'Second', rooms: [] } };
+  }
+}
+
+function setFpStatus(msg, kind) {
+  const el = document.getElementById('fpStatus');
+  el.textContent = msg;
+  el.className = 'fp-status' + (kind === 'ok' ? ' is-ok' : kind === 'error' ? ' is-error' : '');
+}
+
+function switchPreviewFloor(floor) {
+  FP_PREVIEW_FLOOR = floor;
+  document.querySelectorAll('.fp-preview-wrap .floor-btn').forEach(b => b.classList.toggle('is-active', b.dataset.floor === floor));
+  renderFpPreview();
+}
+
+function validateFloorPlan() {
+  const text = document.getElementById('fpEditor').value;
+  try {
+    const parsed = JSON.parse(text);
+    if (!parsed.ground || !parsed.second) throw new Error('Missing ground or second floor.');
+    if (!Array.isArray(parsed.ground.rooms) || !Array.isArray(parsed.second.rooms)) throw new Error('Each floor needs a rooms array.');
+    FP_DATA = parsed;
+    setFpStatus('Valid JSON. ' + parsed.ground.rooms.length + ' ground rooms, ' + parsed.second.rooms.length + ' second rooms.', 'ok');
+    renderFpPreview();
+    return true;
+  } catch (e) {
+    setFpStatus('Invalid: ' + e.message, 'error');
+    return false;
+  }
+}
+
+async function saveFloorPlan() {
+  if (!validateFloorPlan()) {
+    toast('Fix validation errors before saving.', 'error');
+    return;
+  }
+  try {
+    await api('/api/admin/floor-plan', { method: 'PUT', body: { floors: FP_DATA } });
+    toast('Floor plan saved. Kiosk will use the new layout on next refresh.', 'success');
+    setFpStatus('Saved. The kiosk picks this up automatically on next map view.', 'ok');
+  } catch (e) {
+    toast('Save failed: ' + e.message, 'error');
+  }
+}
+
+async function resetFloorPlan() {
+  if (!confirm('Reset to the default floor plan? Any custom changes you saved will be lost.')) return;
+  try {
+    await api('/api/admin/floor-plan', { method: 'DELETE' });
+    FP_DATA = await loadDefaultFloorPlan();
+    document.getElementById('fpEditor').value = JSON.stringify(FP_DATA, null, 2);
+    setFpStatus('Reset to default.', 'ok');
+    renderFpPreview();
+    toast('Reset to default floor plan.', 'success');
+  } catch (e) {
+    toast('Reset failed: ' + e.message, 'error');
+  }
+}
+
+function renderFpPreview() {
+  if (!FP_DATA) return;
+  const floor = FP_DATA[FP_PREVIEW_FLOOR];
+  if (!floor) return;
+  const svg = document.getElementById('fpPreview');
+  const parts = [`<rect width="1210" height="620" fill="#0A1A12"/>`];
+  parts.push(`<defs><pattern id="fpEdGrid" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="1"/></pattern>
+  <pattern id="fpEdFloor" x="0" y="0" width="14" height="14" patternUnits="userSpaceOnUse"><rect width="14" height="14" fill="#0F2418"/><path d="M 14 0 L 0 0 0 14" fill="none" stroke="rgba(255,255,255,0.025)" stroke-width="1"/></pattern></defs>`);
+  parts.push(`<rect width="1210" height="620" fill="url(#fpEdGrid)"/>`);
+  if (floor.outline) parts.push(`<path d="${floor.outline}" fill="url(#fpEdFloor)" stroke="rgba(255,210,77,0.4)" stroke-width="2.5"/>`);
+  if (Array.isArray(floor.hallways)) {
+    for (const h of floor.hallways) {
+      parts.push(`<rect x="${h.x}" y="${h.y}" width="${h.w}" height="${h.h}" fill="rgba(255,255,255,0.04)"/>`);
+    }
+  }
+  for (const r of floor.rooms || []) {
+    const c = FP_TYPE_COLORS[r.type] || FP_TYPE_COLORS.support;
+    const stroke = r.isKiosk ? '#FFD24D' : c.stroke;
+    const sw = r.isKiosk ? 3 : 1.5;
+    parts.push(`<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="3" fill="${c.fill}" stroke="${stroke}" stroke-width="${sw}"/>`);
+    const label = r.label || r.shortName || r.name || '';
+    if (label) {
+      const cx = r.x + r.w / 2;
+      const cy = r.y + r.h / 2;
+      const fs = r.w >= 150 ? 12 : (r.w >= 80 ? 10 : 8);
+      parts.push(`<text x="${cx}" y="${cy + fs/3}" text-anchor="middle" fill="${c.text}" font-size="${fs}" font-weight="600">${escapeHtml(label)}</text>`);
+    }
+    if (r.isKiosk) parts.push(`<circle cx="${r.x + r.w - 10}" cy="${r.y + 10}" r="5" fill="#FFD24D"/>`);
+  }
+  svg.innerHTML = parts.join('');
+}
+
+// Auto-validate on textarea change
+document.addEventListener('input', e => {
+  if (e.target && e.target.id === 'fpEditor') {
+    try {
+      FP_DATA = JSON.parse(e.target.value);
+      setFpStatus('Live preview updated. Click Save to apply on the kiosk.', 'ok');
+      renderFpPreview();
+    } catch (err) {
+      setFpStatus('Invalid JSON: ' + err.message, 'error');
+    }
+  }
+});
 
 // ============ MISSION ============
 async function loadMission() {

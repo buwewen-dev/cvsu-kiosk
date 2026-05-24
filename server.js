@@ -435,6 +435,38 @@ app.delete('/api/admin/faqs/:id', requireAdmin, async (req, res) => {
   res.json({ ok: true });
 });
 
+// ============ FLOOR PLAN ============
+app.get('/api/public/floor-plan', async (req, res) => {
+  const row = await get('SELECT value FROM config WHERE key = ?', ['floor_plan']);
+  if (!row) return res.json({ floors: null });
+  try {
+    res.json({ floors: JSON.parse(row.value) });
+  } catch {
+    res.json({ floors: null });
+  }
+});
+
+app.put('/api/admin/floor-plan', requireSystemAdmin, async (req, res) => {
+  const { floors } = req.body || {};
+  if (!floors || typeof floors !== 'object' || !floors.ground || !floors.second) {
+    return res.status(400).json({ error: 'Invalid floor plan. Must include "ground" and "second" floors.' });
+  }
+  const json = JSON.stringify(floors);
+  const existing = await get('SELECT key FROM config WHERE key = ?', ['floor_plan']);
+  const nowSql = USE_PG ? 'CURRENT_TIMESTAMP' : "datetime('now')";
+  if (existing) {
+    await run(`UPDATE config SET value = ?, updated_at = ${nowSql} WHERE key = ?`, [json, 'floor_plan']);
+  } else {
+    await run('INSERT INTO config (key, value) VALUES (?, ?)', ['floor_plan', json]);
+  }
+  res.json({ ok: true });
+});
+
+app.delete('/api/admin/floor-plan', requireSystemAdmin, async (req, res) => {
+  await run('DELETE FROM config WHERE key = ?', ['floor_plan']);
+  res.json({ ok: true });
+});
+
 // ============ ADMIN: mission (system admin) ============
 app.patch('/api/admin/mission', requireSystemAdmin, async (req, res) => {
   const { vision, mission, core_values } = req.body || {};

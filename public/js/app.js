@@ -138,113 +138,123 @@ async function getDocuments() {
   return STATE.cache.documents;
 }
 
-// ============ FLOOR PLAN DATA ============
-// Coordinates are within a 1210x620 viewBox matching the actual main building proportions.
-const FLOORS = {
+// ============ FLOOR PLAN DEFAULT DATA ============
+// Used as a fallback when the API does not provide a saved floor plan.
+// Coordinates are in a 1210x620 viewBox matching the actual main building (60.5m x 31m, scaled 1m = 20px).
+// The building is L-shaped: left section is full height (rows 1-9), right wing is shorter (rows 1-6).
+// Column markers: A=0, B=150, C=200, D=345, E=470, F=560, G=660, H=750, I=840, J=930, K=1020, L=1110, M=1210
+// Row markers (top to bottom): 9=0, 8=55, 7=135, 6=230, 5=315, 4=400, 3=455 (hallway), 2=540, 1=620
+const DEFAULT_FLOORS = {
   ground: {
     name: 'Ground Floor',
     label: 'GROUND FLOOR PLAN',
+    outline: 'M 0 0 L 660 0 L 660 230 L 1210 230 L 1210 620 L 0 620 Z',
+    hallways: [
+      { x: 200, y: 400, w: 1010, h: 55 },
+      { x: 195, y: 0, w: 25, h: 400 }
+    ],
     rooms: [
-      // Left wing (HRM and Chem)
-      { id: 'cold-kitchen',   name: 'HRM Lab Cold Kitchen', type: 'lab',    x: 10,  y: 30,  w: 140, h: 150 },
-      { id: 'hot-kitchen',    name: 'HRM Lab Hot Kitchen',  type: 'lab',    x: 10,  y: 180, w: 140, h: 175 },
-      { id: 'chem-lab',       name: 'Chem Laboratory',      type: 'lab',    x: 10,  y: 395, w: 140, h: 200 },
+      { id: 'stair-up-left', name: 'Stairs', label: 'UP', type: 'service', x: 15, y: 15, w: 70, h: 45 },
+      { id: 'exit-top', name: 'Exit', label: 'EXIT', type: 'gate', x: 90, y: 15, w: 100, h: 30 },
+      { id: 'cold-kitchen', name: 'HRM Laboratory Cold Kitchen', shortName: 'Cold Kitchen', type: 'lab', x: 15, y: 70, w: 175, h: 165 },
+      { id: 'hot-kitchen', name: 'HRM Laboratory Hot Kitchen', shortName: 'Hot Kitchen', type: 'lab', x: 15, y: 235, w: 175, h: 165 },
+      { id: 'chem-lab', name: 'Chem. Laboratory', shortName: 'Chem Lab', type: 'lab', x: 15, y: 460, w: 320, h: 155 },
 
-      // Center top
-      { id: 'housekeeping',   name: 'Housekeeping Laboratory', type: 'lab',     x: 190, y: 30,  w: 230, h: 120 },
-      { id: 'hotel-chabacano',name: 'Hotel El Chabacano',      type: 'academic',x: 190, y: 150, w: 130, h: 150 },
-      { id: 'chabacano-ext',  name: 'Chabacano Extension',     type: 'academic',x: 320, y: 150, w: 100, h: 80 },
-      { id: 'cr1',            name: 'Comfort Room',            type: 'service', label: 'CR', x: 420, y: 200, w: 50, h: 50 },
-      { id: 'stockroom',      name: 'HRM Stockroom',           type: 'support',x: 320, y: 230, w: 100, h: 70 },
-      { id: 'it-dept',        name: 'Information Technology Department', type: 'academic', x: 190, y: 300, w: 230, h: 100, isHighlight: true, shortName: 'IT Department' },
-      { id: 'mis',            name: 'MIS',                     type: 'support',x: 420, y: 300, w: 100, h: 100 },
+      { id: 'housekeeping', name: 'House Keeping Laboratory', shortName: 'House Keeping Lab', type: 'lab', x: 225, y: 55, w: 290, h: 145 },
+      { id: 'hotel-chabacano', name: 'Hotel El Chabacano', type: 'academic', x: 225, y: 200, w: 130, h: 130 },
+      { id: 'chabacano-cr-1', name: 'Comfort Room', label: 'CR', type: 'service', x: 355, y: 200, w: 50, h: 45 },
+      { id: 'chabacano-ext', name: 'Chabacano Extension', type: 'academic', x: 405, y: 200, w: 155, h: 130 },
+      { id: 'bar-mgmt-lab', name: 'Bar Management Lab', shortName: 'Bar Mgmt Lab', type: 'lab', x: 225, y: 330, w: 130, h: 70 },
+      { id: 'front-office', name: 'Front Office', type: 'support', x: 355, y: 245, w: 130, h: 85 },
+      { id: 'hrm-stockroom', name: 'HRM Stockroom', type: 'support', x: 485, y: 330, w: 95, h: 70 },
+      { id: 'mid-cr', name: 'Comfort Room', label: 'CR', type: 'service', x: 580, y: 330, w: 40, h: 70 },
+      { id: 'it-dept', name: 'Information Technology Department', shortName: 'IT Department', type: 'academic', isHighlight: true, x: 355, y: 330, w: 130, h: 70 },
 
-      // Bottom row
-      { id: 'guidance',       name: 'Guidance Office',         type: 'support',x: 190, y: 440, w: 130, h: 60 },
-      { id: 'counseling',     name: 'Counseling Area',         type: 'support',x: 190, y: 500, w: 80, h: 100 },
-      { id: 'osas',           name: 'OSAS',                    type: 'admin',  x: 270, y: 500, w: 75, h: 100, isKiosk: true, shortName: 'OSAS',
-        offices: [{ name: 'Office of Student Affairs and Services', room: 'Rm 105' }] },
-      { id: 'css-office',     name: 'CSS Office',              type: 'support',x: 345, y: 440, w: 135, h: 50 },
-      { id: 'classroom-114a', name: 'Classroom 114-A',         type: 'academic',x: 345, y: 490, w: 135, h: 110 },
-      { id: 'support-staff',  name: 'Support Staff',           type: 'support',x: 480, y: 440, w: 85, h: 45 },
-      { id: 'pps-office',     name: 'PPS / Supply Office',     type: 'support',x: 480, y: 485, w: 85, h: 90 },
-      { id: 'oja-office',     name: 'OjA Office',              type: 'support',x: 480, y: 575, w: 85, h: 25 },
-      { id: 'lobby1',         name: 'Main Lobby',              type: 'public', x: 565, y: 405, w: 130, h: 50 },
-      { id: 'admin-office',   name: 'Admin Office',            type: 'admin',  x: 565, y: 455, w: 130, h: 145, isHighlight: true, shortName: 'Admin Office' },
+      { id: 'registrar', name: "Registrar's Office", shortName: 'Registrar', type: 'admin', isKiosk: true, x: 620, y: 295, w: 110, h: 105,
+        offices: [{ name: 'Office of the University Registrar', room: 'Window 1' }] },
+      { id: 'mis', name: 'MIS', type: 'support', x: 620, y: 240, w: 75, h: 55 },
+      { id: 'accounting', name: 'Accounting Office', shortName: 'Cashier', type: 'admin', isKiosk: true, x: 695, y: 240, w: 90, h: 55,
+        offices: [{ name: 'University Cashier / Accounting', room: 'Window 1' }] },
+      { id: 'stock-room', name: 'Stock Room', type: 'support', x: 695, y: 295, w: 85, h: 105 },
+      { id: 'east-exit-mid', name: 'Exit', label: 'EXIT', type: 'gate', x: 780, y: 240, w: 60, h: 25 },
+      { id: 'stair-up-mid', name: 'Stairs', label: 'UP', type: 'service', x: 785, y: 265, w: 75, h: 135 },
 
-      // Top right wing
-      { id: 'cr2',            name: 'Comfort Room',            type: 'service', label: 'CR', x: 695, y: 250, w: 50, h: 50 },
-      { id: 'registrar',      name: "Registrar's Office",      type: 'admin',  x: 565, y: 300, w: 130, h: 105, isKiosk: true, shortName: 'Registrar',
-        offices: [{ name: 'Office of the University Registrar', room: 'Rm 101' }] },
-      { id: 'accounting',     name: 'Accounting Office',       type: 'admin',  x: 695, y: 300, w: 110, h: 105, isKiosk: true, shortName: 'Cashier',
-        offices: [{ name: 'University Cashier / Accounting', room: 'Window 1-3' }] },
-      { id: 'rm103',          name: 'Rm 103',                  type: 'academic',x: 805, y: 300, w: 130, h: 105 },
-      { id: 'rce-office',     name: 'RCE Office',              type: 'support',x: 935, y: 300, w: 90, h: 105 },
-      { id: 'records-room',   name: 'Records Room',            type: 'admin',  x: 1025,y: 300, w: 110, h: 105 },
-      { id: 'shel',           name: 'Shel',                    type: 'support',label: 'SHE', x: 1135,y: 300, w: 30, h: 75 },
-      { id: 'elec-room',      name: 'Electrical Room',         type: 'service',label: 'ELEC',x: 1165,y: 300, w: 35, h: 75 },
+      { id: 'rm-103', name: 'RM. 103', type: 'academic', x: 860, y: 240, w: 165, h: 160 },
+      { id: 'rde-office', name: 'RDE Office', type: 'support', x: 1025, y: 240, w: 90, h: 160 },
+      { id: 'records-room', name: 'Records Room', type: 'admin', x: 1115, y: 240, w: 75, h: 160 },
+      { id: 'she', name: 'SHE', label: 'SHE', type: 'support', x: 1190, y: 240, w: 18, h: 160 },
 
-      // Stairs
-      { id: 'stairs-g1',      name: 'Stairs (UP)',             type: 'service',label: 'UP', x: 745, y: 405, w: 60, h: 35 },
-      { id: 'stairs-g2',      name: 'Stairs (DN)',             type: 'service',label: 'DN', x: 1135,y: 375, w: 50, h: 30 },
+      { id: 'guidance', name: 'Guidance Office', type: 'support', x: 215, y: 460, w: 90, h: 50 },
+      { id: 'csg-office', name: 'CSG Office', type: 'support', x: 305, y: 460, w: 90, h: 70 },
+      { id: 'pps-supply', name: 'PPS/Supply Office', shortName: 'PPS / Supply', type: 'support', x: 395, y: 460, w: 105, h: 80 },
+      { id: 'support-staff', name: 'Support Staff', type: 'support', x: 500, y: 460, w: 110, h: 80 },
+      { id: 'counselling-area', name: 'Counselling Area', shortName: 'Counselling', type: 'support', x: 215, y: 540, w: 90, h: 75 },
+      { id: 'osas', name: 'OSAS', type: 'admin', isKiosk: true, x: 305, y: 530, w: 90, h: 85,
+        offices: [{ name: 'Office of Student Affairs and Services', room: 'Rm 1' }] },
+      { id: 'classroom-114a', name: 'Classroom 114-A', shortName: 'Classroom 114-A', type: 'academic', x: 395, y: 540, w: 85, h: 75 },
+      { id: 'qaa-office', name: 'QaAA Office', type: 'support', x: 480, y: 540, w: 80, h: 75 },
+      { id: 'lobby-mid', name: 'Lobby', type: 'public', x: 620, y: 460, w: 90, h: 60 },
+      { id: 'admin-office', name: 'Admin Office', shortName: 'Admin Office', type: 'admin', isHighlight: true, x: 560, y: 530, w: 150, h: 85 },
 
-      // Bottom right labs
-      { id: 'lobby2',         name: 'Lobby',                   type: 'public', x: 565, y: 600, w: 80, h: 0 },
-      { id: 'computer-lab',   name: 'Computer Lab 104-B',      type: 'lab',    x: 645, y: 470, w: 135, h: 130, isHighlight: true, shortName: 'Computer Lab' },
-      { id: 'new-lab-2',      name: 'New Lab 2',               type: 'lab',    x: 780, y: 470, w: 180, h: 130 },
-      { id: 'new-lab-1',      name: 'New Lab 1',               type: 'lab',    x: 960, y: 470, w: 175, h: 130 },
-      { id: 'lp-stair',       name: 'Stairs', type: 'service', label: 'UP', x: 1135,y: 470, w: 50, h: 50 },
-
-      // Exits
-      { id: 'main-gate',      name: 'MAIN ENTRANCE',           type: 'gate',   x: 320, y: 600, w: 220, h: 20 },
-      { id: 'east-exit',      name: 'East Exit',               type: 'gate', label: 'EXIT', x: 1150,y: 220, w: 50, h: 30 },
+      { id: 'computer-lab', name: 'Computer Lab. 104-B', shortName: 'Computer Lab 104-B', type: 'lab', isHighlight: true, x: 710, y: 460, w: 155, h: 155 },
+      { id: 'new-lab-2', name: 'New Lab 2', type: 'lab', x: 865, y: 460, w: 165, h: 155 },
+      { id: 'new-lab-1', name: 'New Lab 1', type: 'lab', x: 1030, y: 460, w: 110, h: 155 },
+      { id: 'elec-room', name: 'Electrical Room', label: 'ELEC', type: 'service', x: 1140, y: 460, w: 60, h: 100 },
+      { id: 'stair-up-right', name: 'Stairs', label: 'UP', type: 'service', x: 1140, y: 560, w: 60, h: 55 },
+      { id: 'east-exit-right', name: 'Exit', label: 'EXIT', type: 'gate', x: 1180, y: 430, w: 30, h: 30 },
     ],
   },
 
   second: {
     name: 'Second Floor',
     label: 'SECOND FLOOR PLAN',
+    outline: 'M 0 0 L 660 0 L 660 230 L 1210 230 L 1210 620 L 0 620 Z',
+    hallways: [
+      { x: 200, y: 400, w: 1010, h: 55 },
+      { x: 195, y: 0, w: 25, h: 400 },
+      { x: 660, y: 400, w: 550, h: 55 }
+    ],
     rooms: [
-      // Left wing
-      { id: 'fire-exit',      name: 'Fire Exit (DN)',          type: 'service',label: 'FIRE EXIT', x: 10, y: 10, w: 140, h: 40 },
-      { id: 'room-218',       name: 'Room 218',                type: 'academic',x: 10, y: 60, w: 140, h: 140 },
-      { id: 'room-217',       name: 'Room 217',                type: 'academic',x: 10, y: 200, w: 140, h: 110 },
-      { id: 'room-216',       name: 'Room 216',                type: 'academic',x: 10, y: 310, w: 140, h: 140 },
-      { id: 'room-215',       name: 'Room 215 (Science Lab)',  type: 'lab',     x: 10, y: 450, w: 140, h: 150, isHighlight: true, shortName: 'Science Lab' },
+      { id: 'stair-dn-left', name: 'Stairs', label: 'DN', type: 'service', x: 15, y: 15, w: 70, h: 50 },
+      { id: 'fire-exit-top', name: 'Fire Exit', label: 'FIRE EXIT', type: 'gate', x: 90, y: 15, w: 100, h: 35 },
+      { id: 'room-218', name: 'Room 218', type: 'academic', x: 15, y: 70, w: 175, h: 130 },
+      { id: 'room-217', name: 'Room 217', type: 'academic', x: 15, y: 200, w: 175, h: 115 },
+      { id: 'room-216', name: 'Room 216', type: 'academic', x: 15, y: 315, w: 175, h: 140 },
+      { id: 'room-215', name: 'Room 215 Science Laboratory', shortName: 'Room 215 Science Lab', type: 'lab', isHighlight: true, x: 15, y: 460, w: 175, h: 155 },
 
-      // Center library
-      { id: 'lib-ext',        name: 'Library Extension',       type: 'library', x: 190, y: 30, w: 330, h: 200, isHighlight: true, shortName: 'Library Ext.' },
-      { id: 'library',        name: 'Library',                 type: 'library', x: 190, y: 230, w: 330, h: 200, isHighlight: true, shortName: 'Library' },
+      { id: 'library-ext', name: 'Library Extension', shortName: 'Library Ext.', type: 'library', isHighlight: true, x: 220, y: 55, w: 290, h: 200 },
+      { id: 'library', name: 'Library', type: 'library', isHighlight: true, x: 220, y: 255, w: 380, h: 145 },
 
-      // Bottom center
-      { id: 'arts-sciences',  name: 'Dept. of Arts and Sciences', type: 'admin',x: 190, y: 445, w: 160, h: 75 },
-      { id: 'teacher-ed',     name: 'Dept. of Teacher Education and Languages', type: 'admin', x: 190, y: 520, w: 160, h: 80 },
-      { id: 'room-214',       name: 'Room 214',                type: 'academic',x: 350, y: 445, w: 110, h: 155 },
-      { id: 'room-213',       name: 'Room 213',                type: 'academic',x: 460, y: 445, w: 110, h: 155 },
+      { id: 'arts-sciences', name: 'Dept. of Arts and Sciences', shortName: 'Dept. Arts and Sciences', type: 'admin', x: 220, y: 460, w: 145, h: 75 },
+      { id: 'teacher-ed', name: 'Dept. of Teacher Education and Languages', shortName: 'Dept. Teacher Ed', type: 'admin', x: 220, y: 535, w: 145, h: 80 },
+      { id: 'room-214', name: 'Room 214', type: 'academic', x: 365, y: 460, w: 105, h: 155 },
+      { id: 'room-213', name: 'Room 213', type: 'academic', x: 470, y: 460, w: 90, h: 155 },
+      { id: 'room-211', name: 'Room 211', type: 'academic', x: 560, y: 460, w: 90, h: 155 },
 
-      // Right wing top hallway rooms
-      { id: 'room-212',       name: 'Room 212',                type: 'academic',x: 580, y: 230, w: 110, h: 200 },
-      { id: 'room-209',       name: 'Room 209',                type: 'academic',x: 690, y: 230, w: 110, h: 200 },
-      { id: 'room-207',       name: 'Room 207',                type: 'academic',x: 800, y: 230, w: 100, h: 200 },
-      { id: 'stairs-2',       name: 'Stairs (DN)',             type: 'service', label: 'STAIRS DN', x: 900, y: 270, w: 70, h: 160 },
-      { id: 'room-205',       name: 'Room 205',                type: 'academic',x: 970, y: 230, w: 100, h: 200 },
-      { id: 'room-203',       name: 'Room 203',                type: 'academic',x: 1070,y: 230, w: 90, h: 200 },
-      { id: 'room-202',       name: 'Room 202',                type: 'academic',x: 1160,y: 230, w: 50, h: 200 },
+      { id: 'emerg-exit-top-right', name: 'Emergency Exit', label: 'EMERGENCY EXIT', type: 'gate', x: 700, y: 240, w: 130, h: 30 },
+      { id: 'room-212', name: 'Room 212', type: 'academic', x: 600, y: 270, w: 100, h: 130 },
+      { id: 'room-209', name: 'Room 209', type: 'academic', x: 700, y: 270, w: 100, h: 130 },
+      { id: 'room-207', name: 'Room 207', type: 'academic', x: 800, y: 270, w: 95, h: 130 },
+      { id: 'stair-dn-mid', name: 'Stairs', label: 'DN', type: 'service', x: 895, y: 270, w: 80, h: 130 },
+      { id: 'room-205', name: 'Room 205', type: 'academic', x: 975, y: 270, w: 95, h: 130 },
+      { id: 'room-203', name: 'Room 203', type: 'academic', x: 1070, y: 270, w: 65, h: 130 },
+      { id: 'room-202', name: 'Room 202', type: 'academic', x: 1135, y: 270, w: 60, h: 130 },
+      { id: 'he', name: 'HE', label: 'HE', type: 'service', x: 1195, y: 270, w: 13, h: 130 },
 
-      // Right wing bottom hallway rooms
-      { id: 'room-211',       name: 'Room 211',                type: 'academic',x: 580, y: 470, w: 100, h: 130 },
-      { id: 'room-210',       name: 'Room 210',                type: 'academic',x: 680, y: 470, w: 100, h: 130 },
-      { id: 'room-208',       name: 'Room 208',                type: 'academic',x: 780, y: 470, w: 100, h: 130 },
-      { id: 'room-206',       name: 'Room 206',                type: 'academic',x: 880, y: 470, w: 100, h: 130 },
-      { id: 'room-204',       name: 'Room 204',                type: 'academic',x: 980, y: 470, w: 100, h: 130 },
-      { id: 'room-201',       name: 'Room 201',                type: 'academic',x: 1080,y: 470, w: 110, h: 130 },
-
-      // Emergency exits
-      { id: 'emerg-exit-r',   name: 'Emergency Exit',          type: 'gate', label: 'EMERGENCY EXIT', x: 580, y: 200, w: 110, h: 20 },
-      { id: 'emerg-exit-b',   name: 'Emergency Exit',          type: 'gate', label: 'EMERGENCY EXIT', x: 1130, y: 600, w: 80, h: 20 },
+      { id: 'room-210', name: 'Room 210', type: 'academic', x: 650, y: 460, w: 90, h: 155 },
+      { id: 'room-208', name: 'Room 208', type: 'academic', x: 740, y: 460, w: 90, h: 155 },
+      { id: 'room-206', name: 'Room 206', type: 'academic', x: 830, y: 460, w: 90, h: 155 },
+      { id: 'room-204', name: 'Room 204', type: 'academic', x: 920, y: 460, w: 90, h: 155 },
+      { id: 'room-201', name: 'Room 201', type: 'academic', x: 1010, y: 460, w: 130, h: 155 },
+      { id: 'stair-dn-right', name: 'Stairs', label: 'DN', type: 'service', x: 1140, y: 460, w: 60, h: 90 },
+      { id: 'fire-exit-right', name: 'Fire Exit', label: 'FIRE EXIT', type: 'gate', x: 1180, y: 415, w: 30, h: 30 },
+      { id: 'emerg-exit-bot', name: 'Emergency Exit', label: 'EMERGENCY EXIT', type: 'gate', x: 650, y: 615, w: 130, h: 5 },
     ],
   },
 };
+
+// Active floor plan data, populated from API when available.
+let FLOORS = JSON.parse(JSON.stringify(DEFAULT_FLOORS));
 
 const TYPE_COLORS = {
   admin:    { fill: '#1A4F2F', stroke: '#FFD24D', text: '#FFFFFF' },
@@ -260,6 +270,15 @@ const TYPE_COLORS = {
 let CURRENT_FLOOR = 'ground';
 
 async function renderMap() {
+  // Try to load saved floor plan from API. Fall back to defaults if not available.
+  try {
+    const { floors } = await api('/api/public/floor-plan');
+    if (floors && floors.ground && floors.second) {
+      FLOORS = floors;
+    }
+  } catch (e) {
+    // Fall back to DEFAULT_FLOORS (already loaded into FLOORS at startup)
+  }
   renderFloorPlan(CURRENT_FLOOR);
 }
 
@@ -279,24 +298,31 @@ function renderFloorPlan(floorId) {
   // Background
   parts.push(`<rect width="1210" height="620" fill="#0A1A12"/>`);
 
-  // Subtle grid
   parts.push(`<defs>
     <pattern id="fpGrid" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
       <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.025)" stroke-width="1"/>
     </pattern>
+    <pattern id="fpFloor" x="0" y="0" width="14" height="14" patternUnits="userSpaceOnUse">
+      <rect width="14" height="14" fill="#0F2418"/>
+      <path d="M 14 0 L 0 0 0 14" fill="none" stroke="rgba(255,255,255,0.025)" stroke-width="1"/>
+    </pattern>
   </defs>`);
   parts.push(`<rect width="1210" height="620" fill="url(#fpGrid)"/>`);
 
-  // Outer building outline (approximate L-shape)
-  // Main rectangle
-  parts.push(`<rect x="5" y="5" width="1200" height="610" rx="4" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="2"/>`);
-
-  // Hallway base (lighter floor)
-  parts.push(`<rect x="155" y="400" width="1050" height="35" fill="rgba(255,255,255,0.04)"/>`);
-  parts.push(`<rect x="150" y="20" width="40" height="590" fill="rgba(255,255,255,0.04)"/>`);
-  if (floorId === 'second') {
-    parts.push(`<rect x="155" y="430" width="1050" height="40" fill="rgba(255,255,255,0.04)"/>`);
+  // Building outline (L-shape) - filled with floor pattern, outlined
+  if (floor.outline) {
+    parts.push(`<path d="${floor.outline}" fill="url(#fpFloor)" stroke="rgba(255,210,77,0.4)" stroke-width="2.5"/>`);
   }
+
+  // Hallway markers (lighter background to indicate walkable corridors)
+  if (floor.hallways) {
+    for (const h of floor.hallways) {
+      parts.push(`<rect x="${h.x}" y="${h.y}" width="${h.w}" height="${h.h}" fill="rgba(255,255,255,0.04)"/>`);
+    }
+  }
+  // Hallway label
+  parts.push(`<text x="900" y="430" fill="rgba(255,210,77,0.25)" font-size="11" font-weight="700" letter-spacing="3">H A L L W A Y</text>`);
+  parts.push(`<text x="270" y="430" fill="rgba(255,210,77,0.25)" font-size="11" font-weight="700" letter-spacing="3">H A L L W A Y</text>`);
 
   // Rooms
   for (const r of floor.rooms) {
@@ -315,15 +341,16 @@ function renderFloorPlan(floorId) {
   }
 
   // Floor label
-  parts.push(`<text x="1200" y="600" text-anchor="end" fill="rgba(255,210,77,0.4)" font-size="12" font-weight="700" letter-spacing="2">${floor.label}</text>`);
+  parts.push(`<text x="1200" y="610" text-anchor="end" fill="rgba(255,210,77,0.4)" font-size="13" font-weight="700" letter-spacing="2">${escapeHtml(floor.label)}</text>`);
 
-  // North compass
+  // North compass (in the top-right empty area for ground floor, far top-right for second)
+  const compassPos = floorId === 'ground' ? { x: 900, y: 110 } : { x: 1160, y: 50 };
   parts.push(`
-    <g transform="translate(1150, 50)">
-      <circle r="22" fill="rgba(0,0,0,0.5)" stroke="#FFD24D" stroke-width="1.5"/>
-      <path d="M 0 -15 L 5 0 L 0 3 L -5 0 Z" fill="#E53935"/>
-      <path d="M 0 15 L 5 0 L 0 -3 L -5 0 Z" fill="white"/>
-      <text x="0" y="-26" text-anchor="middle" fill="#FFD24D" font-size="11" font-weight="700">N</text>
+    <g transform="translate(${compassPos.x}, ${compassPos.y})">
+      <circle r="26" fill="rgba(0,0,0,0.5)" stroke="#FFD24D" stroke-width="1.5"/>
+      <path d="M 0 -18 L 6 0 L 0 3 L -6 0 Z" fill="#E53935"/>
+      <path d="M 0 18 L 6 0 L 0 -3 L -6 0 Z" fill="white"/>
+      <text x="0" y="-30" text-anchor="middle" fill="#FFD24D" font-size="12" font-weight="700">N</text>
     </g>
   `);
 

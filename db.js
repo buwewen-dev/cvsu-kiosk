@@ -199,6 +199,14 @@ async function migrate() {
       updated_at TIMESTAMP DEFAULT ${NOW}
     )
   `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS config (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TIMESTAMP DEFAULT ${NOW}
+    )
+  `);
 }
 
 module.exports = { query, get, run, migrate, USE_PG };

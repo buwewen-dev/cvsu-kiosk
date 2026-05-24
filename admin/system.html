@@ -39,6 +39,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/></svg>
       Announcements
     </button>
+    <button class="sb-link" data-tab="floor-plan" onclick="showTab('floor-plan')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 12h18M12 3v18"/></svg>
+      Floor Plan
+    </button>
     <button class="sb-link" data-tab="mission" onclick="showTab('mission')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/></svg>
       Mission and Vision
@@ -129,6 +133,62 @@
       <button class="btn-primary" onclick="openAnnouncementModal()">+ New Announcement</button>
     </header>
     <div class="ann-grid" id="annGrid"></div>
+  </section>
+
+  <!-- FLOOR PLAN -->
+  <section class="tab" data-tab="floor-plan">
+    <header class="page-head">
+      <div>
+        <h1>Floor Plan Editor</h1>
+        <p class="page-sub">Customize the campus map shown on the kiosk. Edit room positions, names, and types in JSON, preview the result, then save.</p>
+      </div>
+      <div style="display:flex; gap:8px">
+        <button class="btn-secondary" onclick="resetFloorPlan()">Reset to Default</button>
+        <button class="btn-secondary" onclick="validateFloorPlan()">Validate</button>
+        <button class="btn-primary" onclick="saveFloorPlan()">Save Changes</button>
+      </div>
+    </header>
+
+    <div class="fp-editor">
+      <div class="fp-editor-side">
+        <div class="card">
+          <div class="card-head">
+            <h2>Floor Plan JSON</h2>
+            <span id="fpStatus" class="fp-status">Unsaved changes will be lost.</span>
+          </div>
+          <textarea id="fpEditor" class="fp-textarea" spellcheck="false"></textarea>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h2>Schema Reference</h2></div>
+          <div class="fp-schema">
+            <p><b>Top-level:</b> An object with <code>ground</code> and <code>second</code> keys, each a floor.</p>
+            <p><b>Floor fields:</b> <code>name</code>, <code>label</code>, <code>outline</code> (SVG path), <code>hallways</code> (array of <code>{x, y, w, h}</code>), <code>rooms</code> (array).</p>
+            <p><b>Room fields:</b> <code>id</code> (unique), <code>name</code>, <code>shortName</code> (optional), <code>label</code> (optional override), <code>type</code>, <code>x</code>, <code>y</code>, <code>w</code>, <code>h</code>, <code>isKiosk</code> (boolean), <code>isHighlight</code> (boolean), <code>offices</code> (array).</p>
+            <p><b>Room types:</b> <code>admin</code>, <code>academic</code>, <code>lab</code>, <code>library</code>, <code>support</code>, <code>service</code>, <code>public</code>, <code>gate</code>.</p>
+            <p><b>Coordinate system:</b> 1210 wide, 620 tall (matches the actual CvSU Cavite City Main Building at 60.5m x 31m, scaled 1m = 20px).</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="fp-preview-wrap">
+        <div class="fp-preview-bar">
+          <div class="floor-switch" style="background: white; border-color: var(--c-line)">
+            <button class="floor-btn is-active" data-floor="ground" onclick="switchPreviewFloor('ground')" style="color: var(--c-text)">
+              <span class="floor-btn-num">1</span>
+              <span class="floor-btn-label">Ground</span>
+            </button>
+            <button class="floor-btn" data-floor="second" onclick="switchPreviewFloor('second')" style="color: var(--c-text)">
+              <span class="floor-btn-num">2</span>
+              <span class="floor-btn-label">Second</span>
+            </button>
+          </div>
+        </div>
+        <div class="fp-preview-canvas">
+          <svg viewBox="0 0 1210 620" id="fpPreview" class="fp-preview-svg"></svg>
+        </div>
+      </div>
+    </div>
   </section>
 
   <!-- MISSION -->
