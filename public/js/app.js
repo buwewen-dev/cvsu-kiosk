@@ -1,17 +1,28 @@
 /* CvSU Kiosk - Frontend Application
-   Talks to the backend API for all data. Renders the kiosk UI.
+   Slideshow-driven main screen. Help drawer. Multi-doc requests with
+   scheduled claim slots. Inquiry via email. QR generation for new students.
 */
 
 const STATE = {
   user: null,
   request: {
-    office: null, document: null, refNumber: null,
-    queueNumber: null, paymentMethod: null, paid: false, releaseDate: null
+    office: null,
+    documents: [],
+    refNumber: null,
+    queueNumber: null,
+    paymentMethod: null,
+    paid: false,
+    scheduledAt: null,
+    totalFee: 0,
   },
-  currentStep: 1,
   cache: { offices: null, documents: null, announcements: null, faqs: null, buildings: null, mission: null }
 };
 
+let SLIDESHOW_TIMER = null;
+let SLIDESHOW_INDEX = 0;
+let THANKYOU_TIMER = null;
+
+// ============ API ============
 async function api(path, opts = {}) {
   const res = await fetch(path, {
     headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
@@ -25,6 +36,7 @@ async function api(path, opts = {}) {
   return res.json();
 }
 
+// ============ CLOCK ============
 function tickClock() {
   const now = new Date();
   const h = now.getHours();
@@ -35,94 +47,123 @@ function tickClock() {
   const dStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
   setText('welcomeTime', tStr);
   setText('welcomeDate', dStr);
-  ['topbarClock','topbarClockMap','topbarClockAnn','topbarClockFaq','topbarClockDoc','topbarClockQr','topbarClockRcp','topbarClockQ','topbarClockMV'].forEach(id => setText(id, tStr));
+  ['topbarClock','topbarClockMap','topbarClockAnn','topbarClockFaq','topbarClockAsk','topbarClockIdGate','topbarClockQrGen','topbarClockQrResult','topbarClockDocSel','topbarClockSched','topbarClockPay','topbarClockQr','topbarClockRcp','topbarClockQ','topbarClockMV'].forEach(id => setText(id, tStr));
 }
-
 function setText(id, text) {
   const el = document.getElementById(id);
   if (el) el.textContent = text;
 }
 
+// ============ ROUTING ============
 function showScreen(name) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   const target = document.querySelector(`[data-screen="${name}"]`);
   if (target) target.classList.add('active');
 
-  if (name === 'menu') renderMenu();
-  if (name === 'announce') renderAnnouncements();
+  if (THANKYOU_TIMER) { clearInterval(THANKYOU_TIMER); THANKYOU_TIMER = null; }
+  stopSlideshow();
+
+  if (name === 'home') { renderHome(); startSlideshow(); }
   if (name === 'faq') renderFaqs();
-  if (name === 'docrequest') startDocRequest();
+  if (name === 'askstaff') renderAskStaff();
   if (name === 'queue') renderQueue();
   if (name === 'map') renderMap();
   if (name === 'mission') renderMission();
+  if (name === 'docselect') renderDocSelect();
+  if (name === 'schedule') renderSchedule();
+  if (name === 'payment') renderPayment();
+  if (name === 'thankyou') runThankYou();
 }
 
-function goWelcome() {
-  STATE.user = null;
-  showScreen('welcome');
-}
+function goHome() { showScreen('home'); }
 
-function enterAsGuest() {
-  STATE.user = { name: 'Guest User', id: null, course: null };
-  showScreen('menu');
-}
-
-function openLogin() {
-  document.getElementById('loginModal').classList.add('is-open');
-  setTimeout(() => document.getElementById('loginIdInput').focus(), 100);
-}
-function closeLogin() {
-  document.getElementById('loginModal').classList.remove('is-open');
-}
-
-async function manualLogin() {
-  const input = document.getElementById('loginIdInput').value.trim();
-  if (!input) return toast('Please enter a Student ID', 'error');
+// ============ HOME / SLIDESHOW ============
+async function renderHome() {
   try {
-    const { student } = await api(`/api/public/student/${encodeURIComponent(input)}`);
-    STATE.user = student;
-    closeLogin();
-    toast(`Welcome, ${student.name.split(' ')[0]}.`);
-    showScreen('menu');
-  } catch (e) {
-    toast('Student ID not found. Try 202301234 for demo.', 'error');
-  }
-}
+    const { announcements } = await api('/api/public/announcements');
+    STATE.cache.announcements = announcements;
+    const stage = document.getElementById('slideshow');
+    const dots = document.getElementById('slideshowDots');
+    if (!announcements.length) {
+      stage.innerHTML = '<div class="slide-empty">No announcements yet. Tap "How Can I Help You?" to start.</div>';
+      dots.innerHTML = '';
+      return;
+    }
+    stage.innerHTML = announcements.map((a, i) => `
+      <div class="slide ${i === 0 ? 'is-active' : ''}" data-idx="${i}" onclick="openAnnouncementDetail(${a.id})">
+        <div class="slide-bg slide-bg--${a.type}"></div>
+        <div class="slide-content">
+          <span class="slide-tag tag--${a.type}">${escapeHtml(a.type)}</span>
+          <h2 class="slide-title">${escapeHtml(a.title)}</h2>
+          <p class="slide-body">${escapeHtml(a.body).substring(0, 240)}${a.body.length > 240 ? '...' : ''}</p>
+          <div class="slide-foot">
+            <span>${escapeHtml(a.date_text || '')}</span>
+            <span class="slide-tap-hint">Tap to read more &rarr;</span>
+          </div>
+        </div>
+      </div>
+    `).join('');
+    dots.innerHTML = announcements.map((a, i) => `<button class="slideshow-dot ${i === 0 ? 'is-active' : ''}" data-idx="${i}" onclick="goToSlide(${i})"></button>`).join('');
+    SLIDESHOW_INDEX = 0;
+  } catch (e) { console.error(e); }
 
-async function demoLogin() {
-  try {
-    const { student } = await api('/api/public/student/202301234');
-    STATE.user = student;
-    closeLogin();
-    toast(`Welcome, ${student.name.split(' ')[0]}.`);
-    showScreen('menu');
-  } catch (e) {
-    toast('Demo student not available.', 'error');
-  }
-}
-
-async function renderMenu() {
-  const u = STATE.user || { name: 'Guest User', course: null };
-  const hour = new Date().getHours();
-  const greet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
-  setText('menuGreet', `${greet}.`);
-  setText('menuUser', u.id ? `${u.name} . ${u.course} ${u.year}` : 'Guest User');
-
+  // Footer stats
   try {
     const { queues } = await api('/api/public/queues');
-    const offices = await getOffices();
-    const items = offices.map(o => {
-      const q = queues[o.id] || { current: 0, waiting: 0 };
-      return `${o.name}: now serving #${q.current} . ${q.waiting} waiting`;
-    });
-    setText('liveTicker', items.join('   .   ') + '   .   ' + items.join('   .   '));
     const totalWaiting = Object.values(queues).reduce((s, q) => s + (q.waiting || 0), 0);
     setText('statQueue', totalWaiting);
     const docs = await getDocuments();
     setText('statDocs', docs.length);
-  } catch (e) { console.error(e); }
+  } catch {}
 }
 
+function startSlideshow() {
+  stopSlideshow();
+  SLIDESHOW_TIMER = setInterval(nextSlide, 6000);
+}
+function stopSlideshow() {
+  if (SLIDESHOW_TIMER) { clearInterval(SLIDESHOW_TIMER); SLIDESHOW_TIMER = null; }
+}
+function nextSlide() {
+  const slides = document.querySelectorAll('#slideshow .slide');
+  if (!slides.length) return;
+  const next = (SLIDESHOW_INDEX + 1) % slides.length;
+  goToSlide(next);
+}
+function goToSlide(idx) {
+  document.querySelectorAll('#slideshow .slide').forEach((s, i) => s.classList.toggle('is-active', i === idx));
+  document.querySelectorAll('.slideshow-dot').forEach((d, i) => d.classList.toggle('is-active', i === idx));
+  SLIDESHOW_INDEX = idx;
+}
+
+function openAnnouncementDetail(id) {
+  const a = (STATE.cache.announcements || []).find(x => x.id === id);
+  if (!a) return;
+  document.getElementById('annDetailBody').innerHTML = `
+    <div class="modal-head">
+      <h3>${escapeHtml(a.title)}</h3>
+      <button class="modal-close" onclick="closeAnnouncementDetail()">x</button>
+    </div>
+    <div class="modal-body">
+      <span class="announce-tag tag--${a.type}">${escapeHtml(a.type)}</span>
+      <p class="ann-detail-body">${escapeHtml(a.body)}</p>
+      <div class="ann-detail-foot">
+        <span>${escapeHtml(a.date_text || '')}</span>
+        <span>${escapeHtml(a.author || '')}</span>
+      </div>
+    </div>
+  `;
+  document.getElementById('annDetailModal').classList.add('is-open');
+}
+function closeAnnouncementDetail() {
+  document.getElementById('annDetailModal').classList.remove('is-open');
+}
+
+// ============ HELP DRAWER ============
+function openHelp() { document.getElementById('helpDrawer').classList.add('is-open'); }
+function closeHelp() { document.getElementById('helpDrawer').classList.remove('is-open'); }
+
+// ============ DATA CACHE ============
 async function getOffices() {
   if (!STATE.cache.offices) {
     const { offices } = await api('/api/public/offices');
@@ -138,123 +179,33 @@ async function getDocuments() {
   return STATE.cache.documents;
 }
 
-// ============ FLOOR PLAN DEFAULT DATA ============
-// Used as a fallback when the API does not provide a saved floor plan.
-// Coordinates are in a 1210x620 viewBox matching the actual main building (60.5m x 31m, scaled 1m = 20px).
-// The building is L-shaped: left section is full height (rows 1-9), right wing is shorter (rows 1-6).
-// Column markers: A=0, B=150, C=200, D=345, E=470, F=560, G=660, H=750, I=840, J=930, K=1020, L=1110, M=1210
-// Row markers (top to bottom): 9=0, 8=55, 7=135, 6=230, 5=315, 4=400, 3=455 (hallway), 2=540, 1=620
-const DEFAULT_FLOORS = {
-  ground: {
-    name: 'Ground Floor',
-    label: 'GROUND FLOOR PLAN',
-    outline: 'M 0 0 L 660 0 L 660 230 L 1210 230 L 1210 620 L 0 620 Z',
-    hallways: [
-      { x: 200, y: 400, w: 1010, h: 55 },
-      { x: 195, y: 0, w: 25, h: 400 }
-    ],
-    rooms: [
-      { id: 'stair-up-left', name: 'Stairs', label: 'UP', type: 'service', x: 15, y: 15, w: 70, h: 45 },
-      { id: 'exit-top', name: 'Exit', label: 'EXIT', type: 'gate', x: 90, y: 15, w: 100, h: 30 },
-      { id: 'cold-kitchen', name: 'HRM Laboratory Cold Kitchen', shortName: 'Cold Kitchen', type: 'lab', x: 15, y: 70, w: 175, h: 165 },
-      { id: 'hot-kitchen', name: 'HRM Laboratory Hot Kitchen', shortName: 'Hot Kitchen', type: 'lab', x: 15, y: 235, w: 175, h: 165 },
-      { id: 'chem-lab', name: 'Chem. Laboratory', shortName: 'Chem Lab', type: 'lab', x: 15, y: 460, w: 320, h: 155 },
+// ============ MAP (floor plan) ============
+const DEFAULT_FLOORS = window.DEFAULT_FLOORS_DATA || null;
+let FLOORS = null;
+let CURRENT_FLOOR = 'ground';
 
-      { id: 'housekeeping', name: 'House Keeping Laboratory', shortName: 'House Keeping Lab', type: 'lab', x: 225, y: 55, w: 290, h: 145 },
-      { id: 'hotel-chabacano', name: 'Hotel El Chabacano', type: 'academic', x: 225, y: 200, w: 130, h: 130 },
-      { id: 'chabacano-cr-1', name: 'Comfort Room', label: 'CR', type: 'service', x: 355, y: 200, w: 50, h: 45 },
-      { id: 'chabacano-ext', name: 'Chabacano Extension', type: 'academic', x: 405, y: 200, w: 155, h: 130 },
-      { id: 'bar-mgmt-lab', name: 'Bar Management Lab', shortName: 'Bar Mgmt Lab', type: 'lab', x: 225, y: 330, w: 130, h: 70 },
-      { id: 'front-office', name: 'Front Office', type: 'support', x: 355, y: 245, w: 130, h: 85 },
-      { id: 'hrm-stockroom', name: 'HRM Stockroom', type: 'support', x: 485, y: 330, w: 95, h: 70 },
-      { id: 'mid-cr', name: 'Comfort Room', label: 'CR', type: 'service', x: 580, y: 330, w: 40, h: 70 },
-      { id: 'it-dept', name: 'Information Technology Department', shortName: 'IT Department', type: 'academic', isHighlight: true, x: 355, y: 330, w: 130, h: 70 },
+async function renderMap() {
+  if (!FLOORS) {
+    try {
+      const { floors } = await api('/api/public/floor-plan');
+      if (floors && floors.ground && floors.second) {
+        FLOORS = floors;
+      } else if (window.FLOORS_FALLBACK) {
+        FLOORS = window.FLOORS_FALLBACK;
+      }
+    } catch {
+      if (window.FLOORS_FALLBACK) FLOORS = window.FLOORS_FALLBACK;
+    }
+  }
+  if (!FLOORS) return;
+  renderFloorPlan(CURRENT_FLOOR);
+}
 
-      { id: 'registrar', name: "Registrar's Office", shortName: 'Registrar', type: 'admin', isKiosk: true, x: 620, y: 295, w: 110, h: 105,
-        offices: [{ name: 'Office of the University Registrar', room: 'Window 1' }] },
-      { id: 'mis', name: 'MIS', type: 'support', x: 620, y: 240, w: 75, h: 55 },
-      { id: 'accounting', name: 'Accounting Office', shortName: 'Cashier', type: 'admin', isKiosk: true, x: 695, y: 240, w: 90, h: 55,
-        offices: [{ name: 'University Cashier / Accounting', room: 'Window 1' }] },
-      { id: 'stock-room', name: 'Stock Room', type: 'support', x: 695, y: 295, w: 85, h: 105 },
-      { id: 'east-exit-mid', name: 'Exit', label: 'EXIT', type: 'gate', x: 780, y: 240, w: 60, h: 25 },
-      { id: 'stair-up-mid', name: 'Stairs', label: 'UP', type: 'service', x: 785, y: 265, w: 75, h: 135 },
-
-      { id: 'rm-103', name: 'RM. 103', type: 'academic', x: 860, y: 240, w: 165, h: 160 },
-      { id: 'rde-office', name: 'RDE Office', type: 'support', x: 1025, y: 240, w: 90, h: 160 },
-      { id: 'records-room', name: 'Records Room', type: 'admin', x: 1115, y: 240, w: 75, h: 160 },
-      { id: 'she', name: 'SHE', label: 'SHE', type: 'support', x: 1190, y: 240, w: 18, h: 160 },
-
-      { id: 'guidance', name: 'Guidance Office', type: 'support', x: 215, y: 460, w: 90, h: 50 },
-      { id: 'csg-office', name: 'CSG Office', type: 'support', x: 305, y: 460, w: 90, h: 70 },
-      { id: 'pps-supply', name: 'PPS/Supply Office', shortName: 'PPS / Supply', type: 'support', x: 395, y: 460, w: 105, h: 80 },
-      { id: 'support-staff', name: 'Support Staff', type: 'support', x: 500, y: 460, w: 110, h: 80 },
-      { id: 'counselling-area', name: 'Counselling Area', shortName: 'Counselling', type: 'support', x: 215, y: 540, w: 90, h: 75 },
-      { id: 'osas', name: 'OSAS', type: 'admin', isKiosk: true, x: 305, y: 530, w: 90, h: 85,
-        offices: [{ name: 'Office of Student Affairs and Services', room: 'Rm 1' }] },
-      { id: 'classroom-114a', name: 'Classroom 114-A', shortName: 'Classroom 114-A', type: 'academic', x: 395, y: 540, w: 85, h: 75 },
-      { id: 'qaa-office', name: 'QaAA Office', type: 'support', x: 480, y: 540, w: 80, h: 75 },
-      { id: 'lobby-mid', name: 'Lobby', type: 'public', x: 620, y: 460, w: 90, h: 60 },
-      { id: 'admin-office', name: 'Admin Office', shortName: 'Admin Office', type: 'admin', isHighlight: true, x: 560, y: 530, w: 150, h: 85 },
-
-      { id: 'computer-lab', name: 'Computer Lab. 104-B', shortName: 'Computer Lab 104-B', type: 'lab', isHighlight: true, x: 710, y: 460, w: 155, h: 155 },
-      { id: 'new-lab-2', name: 'New Lab 2', type: 'lab', x: 865, y: 460, w: 165, h: 155 },
-      { id: 'new-lab-1', name: 'New Lab 1', type: 'lab', x: 1030, y: 460, w: 110, h: 155 },
-      { id: 'elec-room', name: 'Electrical Room', label: 'ELEC', type: 'service', x: 1140, y: 460, w: 60, h: 100 },
-      { id: 'stair-up-right', name: 'Stairs', label: 'UP', type: 'service', x: 1140, y: 560, w: 60, h: 55 },
-      { id: 'east-exit-right', name: 'Exit', label: 'EXIT', type: 'gate', x: 1180, y: 430, w: 30, h: 30 },
-    ],
-  },
-
-  second: {
-    name: 'Second Floor',
-    label: 'SECOND FLOOR PLAN',
-    outline: 'M 0 0 L 660 0 L 660 230 L 1210 230 L 1210 620 L 0 620 Z',
-    hallways: [
-      { x: 200, y: 400, w: 1010, h: 55 },
-      { x: 195, y: 0, w: 25, h: 400 },
-      { x: 660, y: 400, w: 550, h: 55 }
-    ],
-    rooms: [
-      { id: 'stair-dn-left', name: 'Stairs', label: 'DN', type: 'service', x: 15, y: 15, w: 70, h: 50 },
-      { id: 'fire-exit-top', name: 'Fire Exit', label: 'FIRE EXIT', type: 'gate', x: 90, y: 15, w: 100, h: 35 },
-      { id: 'room-218', name: 'Room 218', type: 'academic', x: 15, y: 70, w: 175, h: 130 },
-      { id: 'room-217', name: 'Room 217', type: 'academic', x: 15, y: 200, w: 175, h: 115 },
-      { id: 'room-216', name: 'Room 216', type: 'academic', x: 15, y: 315, w: 175, h: 140 },
-      { id: 'room-215', name: 'Room 215 Science Laboratory', shortName: 'Room 215 Science Lab', type: 'lab', isHighlight: true, x: 15, y: 460, w: 175, h: 155 },
-
-      { id: 'library-ext', name: 'Library Extension', shortName: 'Library Ext.', type: 'library', isHighlight: true, x: 220, y: 55, w: 290, h: 200 },
-      { id: 'library', name: 'Library', type: 'library', isHighlight: true, x: 220, y: 255, w: 380, h: 145 },
-
-      { id: 'arts-sciences', name: 'Dept. of Arts and Sciences', shortName: 'Dept. Arts and Sciences', type: 'admin', x: 220, y: 460, w: 145, h: 75 },
-      { id: 'teacher-ed', name: 'Dept. of Teacher Education and Languages', shortName: 'Dept. Teacher Ed', type: 'admin', x: 220, y: 535, w: 145, h: 80 },
-      { id: 'room-214', name: 'Room 214', type: 'academic', x: 365, y: 460, w: 105, h: 155 },
-      { id: 'room-213', name: 'Room 213', type: 'academic', x: 470, y: 460, w: 90, h: 155 },
-      { id: 'room-211', name: 'Room 211', type: 'academic', x: 560, y: 460, w: 90, h: 155 },
-
-      { id: 'emerg-exit-top-right', name: 'Emergency Exit', label: 'EMERGENCY EXIT', type: 'gate', x: 700, y: 240, w: 130, h: 30 },
-      { id: 'room-212', name: 'Room 212', type: 'academic', x: 600, y: 270, w: 100, h: 130 },
-      { id: 'room-209', name: 'Room 209', type: 'academic', x: 700, y: 270, w: 100, h: 130 },
-      { id: 'room-207', name: 'Room 207', type: 'academic', x: 800, y: 270, w: 95, h: 130 },
-      { id: 'stair-dn-mid', name: 'Stairs', label: 'DN', type: 'service', x: 895, y: 270, w: 80, h: 130 },
-      { id: 'room-205', name: 'Room 205', type: 'academic', x: 975, y: 270, w: 95, h: 130 },
-      { id: 'room-203', name: 'Room 203', type: 'academic', x: 1070, y: 270, w: 65, h: 130 },
-      { id: 'room-202', name: 'Room 202', type: 'academic', x: 1135, y: 270, w: 60, h: 130 },
-      { id: 'he', name: 'HE', label: 'HE', type: 'service', x: 1195, y: 270, w: 13, h: 130 },
-
-      { id: 'room-210', name: 'Room 210', type: 'academic', x: 650, y: 460, w: 90, h: 155 },
-      { id: 'room-208', name: 'Room 208', type: 'academic', x: 740, y: 460, w: 90, h: 155 },
-      { id: 'room-206', name: 'Room 206', type: 'academic', x: 830, y: 460, w: 90, h: 155 },
-      { id: 'room-204', name: 'Room 204', type: 'academic', x: 920, y: 460, w: 90, h: 155 },
-      { id: 'room-201', name: 'Room 201', type: 'academic', x: 1010, y: 460, w: 130, h: 155 },
-      { id: 'stair-dn-right', name: 'Stairs', label: 'DN', type: 'service', x: 1140, y: 460, w: 60, h: 90 },
-      { id: 'fire-exit-right', name: 'Fire Exit', label: 'FIRE EXIT', type: 'gate', x: 1180, y: 415, w: 30, h: 30 },
-      { id: 'emerg-exit-bot', name: 'Emergency Exit', label: 'EMERGENCY EXIT', type: 'gate', x: 650, y: 615, w: 130, h: 5 },
-    ],
-  },
-};
-
-// Active floor plan data, populated from API when available.
-let FLOORS = JSON.parse(JSON.stringify(DEFAULT_FLOORS));
+function switchFloor(floor) {
+  CURRENT_FLOOR = floor;
+  document.querySelectorAll('.floor-btn').forEach(b => b.classList.toggle('is-active', b.dataset.floor === floor));
+  renderFloorPlan(floor);
+}
 
 const TYPE_COLORS = {
   admin:    { fill: '#1A4F2F', stroke: '#FFD24D', text: '#FFFFFF' },
@@ -267,212 +218,70 @@ const TYPE_COLORS = {
   gate:     { fill: '#FFD24D', stroke: '#E0A91E', text: '#0E2A1A' },
 };
 
-let CURRENT_FLOOR = 'ground';
-
-async function renderMap() {
-  // Try to load saved floor plan from API. Fall back to defaults if not available.
-  try {
-    const { floors } = await api('/api/public/floor-plan');
-    if (floors && floors.ground && floors.second) {
-      FLOORS = floors;
-    }
-  } catch (e) {
-    // Fall back to DEFAULT_FLOORS (already loaded into FLOORS at startup)
-  }
-  renderFloorPlan(CURRENT_FLOOR);
-}
-
-function switchFloor(floor) {
-  CURRENT_FLOOR = floor;
-  document.querySelectorAll('.floor-btn').forEach(b => b.classList.toggle('is-active', b.dataset.floor === floor));
-  renderFloorPlan(floor);
-}
-
 function renderFloorPlan(floorId) {
-  const floor = FLOORS[floorId];
+  const floor = FLOORS && FLOORS[floorId];
   if (!floor) return;
   const svg = document.getElementById('floorPlan');
-
+  if (!svg) return;
   const parts = [];
-
-  // Background
-  parts.push(`<rect width="1210" height="620" fill="#0A1A12"/>`);
-
   parts.push(`<defs>
-    <pattern id="fpGrid" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
-      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.025)" stroke-width="1"/>
-    </pattern>
-    <pattern id="fpFloor" x="0" y="0" width="14" height="14" patternUnits="userSpaceOnUse">
-      <rect width="14" height="14" fill="#0F2418"/>
-      <path d="M 14 0 L 0 0 0 14" fill="none" stroke="rgba(255,255,255,0.025)" stroke-width="1"/>
-    </pattern>
+    <pattern id="fpGrid" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.025)" stroke-width="1"/></pattern>
+    <pattern id="fpFloor" x="0" y="0" width="14" height="14" patternUnits="userSpaceOnUse"><rect width="14" height="14" fill="#0F2418"/><path d="M 14 0 L 0 0 0 14" fill="none" stroke="rgba(255,255,255,0.025)" stroke-width="1"/></pattern>
   </defs>`);
+  parts.push(`<rect width="1210" height="620" fill="#0A1A12"/>`);
   parts.push(`<rect width="1210" height="620" fill="url(#fpGrid)"/>`);
-
-  // Building outline (L-shape) - filled with floor pattern, outlined
-  if (floor.outline) {
-    parts.push(`<path d="${floor.outline}" fill="url(#fpFloor)" stroke="rgba(255,210,77,0.4)" stroke-width="2.5"/>`);
+  if (floor.outline) parts.push(`<path d="${floor.outline}" fill="url(#fpFloor)" stroke="rgba(255,210,77,0.4)" stroke-width="2.5"/>`);
+  if (Array.isArray(floor.hallways)) {
+    for (const h of floor.hallways) parts.push(`<rect x="${h.x}" y="${h.y}" width="${h.w}" height="${h.h}" fill="rgba(255,255,255,0.04)"/>`);
   }
-
-  // Hallway markers (lighter background to indicate walkable corridors)
-  if (floor.hallways) {
-    for (const h of floor.hallways) {
-      parts.push(`<rect x="${h.x}" y="${h.y}" width="${h.w}" height="${h.h}" fill="rgba(255,255,255,0.04)"/>`);
-    }
-  }
-  // Hallway label
   parts.push(`<text x="900" y="430" fill="rgba(255,210,77,0.25)" font-size="11" font-weight="700" letter-spacing="3">H A L L W A Y</text>`);
   parts.push(`<text x="270" y="430" fill="rgba(255,210,77,0.25)" font-size="11" font-weight="700" letter-spacing="3">H A L L W A Y</text>`);
-
-  // Rooms
-  for (const r of floor.rooms) {
+  for (const r of floor.rooms || []) {
     const c = TYPE_COLORS[r.type] || TYPE_COLORS.support;
-    const highlightClass = r.isKiosk ? 'is-kiosk' : (r.isHighlight ? 'is-highlight' : '');
-    const strokeWidth = r.isKiosk ? 3 : 1.5;
     const stroke = r.isKiosk ? '#FFD24D' : c.stroke;
-    parts.push(`
-      <g class="room ${highlightClass}" data-room="${r.id}" onclick="selectRoom('${r.id}')">
-        <rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="3"
-              fill="${c.fill}" stroke="${stroke}" stroke-width="${strokeWidth}"/>
-        ${roomLabel(r, c.text)}
-        ${r.isKiosk ? `<circle cx="${r.x + r.w - 12}" cy="${r.y + 12}" r="6" fill="#FFD24D"/>` : ''}
-      </g>
-    `);
+    const sw = r.isKiosk ? 3 : 1.5;
+    const highlightClass = r.isKiosk ? 'is-kiosk' : (r.isHighlight ? 'is-highlight' : '');
+    parts.push(`<g class="room ${highlightClass}" data-room="${r.id}" onclick="selectRoom('${r.id}')">`);
+    parts.push(`<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="3" fill="${c.fill}" stroke="${stroke}" stroke-width="${sw}"/>`);
+    const label = r.label || r.shortName || r.name || r.id;
+    if (label) {
+      const cx = r.x + r.w / 2;
+      const cy = r.y + r.h / 2;
+      const fs = r.w >= 150 ? 12 : (r.w >= 80 ? 10 : 8);
+      parts.push(`<text x="${cx}" y="${cy + fs/3}" text-anchor="middle" fill="${c.text}" font-size="${fs}" font-weight="600" pointer-events="none">${escapeHtml(label)}</text>`);
+    }
+    if (r.isKiosk) parts.push(`<circle cx="${r.x + r.w - 10}" cy="${r.y + 10}" r="5" fill="#FFD24D" pointer-events="none"/>`);
+    parts.push('</g>');
   }
-
-  // Floor label
-  parts.push(`<text x="1200" y="610" text-anchor="end" fill="rgba(255,210,77,0.4)" font-size="13" font-weight="700" letter-spacing="2">${escapeHtml(floor.label)}</text>`);
-
-  // North compass (in the top-right empty area for ground floor, far top-right for second)
-  const compassPos = floorId === 'ground' ? { x: 900, y: 110 } : { x: 1160, y: 50 };
-  parts.push(`
-    <g transform="translate(${compassPos.x}, ${compassPos.y})">
-      <circle r="26" fill="rgba(0,0,0,0.5)" stroke="#FFD24D" stroke-width="1.5"/>
-      <path d="M 0 -18 L 6 0 L 0 3 L -6 0 Z" fill="#E53935"/>
-      <path d="M 0 18 L 6 0 L 0 -3 L -6 0 Z" fill="white"/>
-      <text x="0" y="-30" text-anchor="middle" fill="#FFD24D" font-size="12" font-weight="700">N</text>
-    </g>
-  `);
-
+  parts.push(`<text x="1200" y="610" text-anchor="end" fill="rgba(255,210,77,0.4)" font-size="13" font-weight="700" letter-spacing="2">${escapeHtml(floor.label || '')}</text>`);
   svg.innerHTML = parts.join('');
-}
-
-function roomLabel(r, textColor) {
-  const cx = r.x + r.w / 2;
-  const cy = r.y + r.h / 2;
-  const label = r.label || r.shortName || r.name;
-
-  // Adapt label size based on room size
-  let fontSize = 10;
-  if (r.w >= 130 && r.h >= 80) fontSize = 13;
-  if (r.w >= 200 && r.h >= 100) fontSize = 15;
-  if (r.type === 'gate') fontSize = Math.min(13, fontSize + 2);
-
-  // Wrap long labels into 2 lines
-  const words = label.split(' ');
-  let lines = [label];
-  if (words.length > 2 && r.w < 160) {
-    const mid = Math.ceil(words.length / 2);
-    lines = [words.slice(0, mid).join(' '), words.slice(mid).join(' ')];
-  }
-
-  const lineHeight = fontSize + 2;
-  const totalH = lines.length * lineHeight;
-  const startY = cy - totalH / 2 + fontSize;
-
-  return lines.map((line, i) => `
-    <text x="${cx}" y="${startY + i * lineHeight}" text-anchor="middle"
-          fill="${textColor}" font-size="${fontSize}" font-weight="${r.type === 'gate' ? 700 : 600}"
-          pointer-events="none">${escapeHtml(line)}</text>
-  `).join('');
 }
 
 function selectRoom(id) {
   const floor = FLOORS[CURRENT_FLOOR];
   const room = floor.rooms.find(r => r.id === id);
   if (!room) return;
-
   document.querySelectorAll('.room').forEach(r => r.classList.remove('is-selected'));
   document.querySelector(`[data-room="${id}"]`)?.classList.add('is-selected');
-
-  const typeLabel = ({
-    admin: 'Administrative', academic: 'Academic', lab: 'Laboratory',
-    library: 'Library', support: 'Support Office', service: 'Service Area',
-    public: 'Common Area', gate: 'Entrance / Exit',
-  })[room.type] || 'Room';
-
-  const side = document.getElementById('mapSide');
-  side.innerHTML = `
+  const typeLabel = ({ admin: 'Administrative', academic: 'Academic', lab: 'Laboratory', library: 'Library', support: 'Support Office', service: 'Service Area', public: 'Common Area', gate: 'Entrance / Exit' })[room.type] || 'Room';
+  document.getElementById('mapSide').innerHTML = `
     <div class="map-side-content">
       <span class="bldg-cat">${typeLabel} . ${floor.name}</span>
       <h2>${escapeHtml(room.name)}</h2>
       <p class="bldg-desc">${escapeHtml(getRoomDesc(room))}</p>
-      ${room.offices ? `
-        <h4>What is inside</h4>
-        <div class="bldg-offices">
-          ${room.offices.map(o => `
-            <div class="bldg-office">
-              <div class="bldg-office-name">${escapeHtml(o.name)}</div>
-              <div class="bldg-office-room">${escapeHtml(o.room)}</div>
-            </div>
-          `).join('')}
-        </div>
-      ` : ''}
-      <h4>Directions from Main Entrance</h4>
-      <p class="bldg-desc">${escapeHtml(getDirections(room))}</p>
+      ${room.offices ? `<h4>What is inside</h4><div class="bldg-offices">${room.offices.map(o => `<div class="bldg-office"><div class="bldg-office-name">${escapeHtml(o.name)}</div><div class="bldg-office-room">${escapeHtml(o.room)}</div></div>`).join('')}</div>` : ''}
     </div>
   `;
 }
-
 function getRoomDesc(room) {
-  const descs = {
-    'registrar': 'Office of the University Registrar. Request academic documents like Transcript of Records, Certificate of Enrollment, and Certificate of Grades here.',
-    'osas': 'Office of Student Affairs and Services. Issues Good Moral Certificates, processes student clearance, and handles scholarships and student concerns.',
-    'accounting': 'University Cashier and Accounting Office. Pay tuition, miscellaneous fees, and document request fees here.',
-    'admin-office': 'Main administrative office of the campus. Houses the Campus Director and other key administrative functions.',
-    'it-dept': 'Department of Information Technology. Faculty offices and operations for the Computer Science and IT programs.',
-    'library': 'Main University Library. Quiet study, references, and computer stations.',
-    'lib-ext': 'Library Extension area. Additional study space and reference materials.',
-    'computer-lab': 'Computer Laboratory 104-B for CS and IT classes.',
-    'new-lab-1': 'New Computer Laboratory 1. Used for major IT subjects.',
-    'new-lab-2': 'New Computer Laboratory 2. Used for major IT subjects.',
-    'chem-lab': 'Chemistry Laboratory for science classes.',
-    'cold-kitchen': 'HRM Cold Kitchen Laboratory for Hospitality Management classes.',
-    'hot-kitchen': 'HRM Hot Kitchen Laboratory for Hospitality Management classes.',
-    'housekeeping': 'Housekeeping Laboratory for Hospitality Management classes.',
-    'hotel-chabacano': 'Mock hotel space used for HRM laboratory classes.',
-    'room-215': 'Science Laboratory on the second floor.',
-    'arts-sciences': 'Department of Arts and Sciences. Faculty offices.',
-    'teacher-ed': 'Department of Teacher Education and Languages. Faculty offices.',
-    'records-room': 'Storage of official university records.',
-    'main-gate': 'Main entrance to the building from the campus grounds.',
-  };
-  if (descs[room.id]) return descs[room.id];
-  if (room.type === 'academic') return 'Classroom used for lectures and academic sessions. Check your schedule for current class assignments.';
-  if (room.type === 'service') return 'Service area. Used by maintenance and operations staff.';
-  if (room.type === 'support') return 'Support office for campus operations.';
+  if (room.type === 'admin') return 'Administrative office where transactions and student services are handled.';
+  if (room.type === 'academic') return 'Classroom or academic department area.';
+  if (room.type === 'lab') return 'Laboratory used for specialized classes.';
+  if (room.type === 'library') return 'Quiet study area, references, and computers.';
   if (room.type === 'gate') return 'Building entrance or exit point.';
   return `${room.name}. Part of the CvSU Cavite City Main Building.`;
 }
-
-function getDirections(room) {
-  const floor = FLOORS[CURRENT_FLOOR];
-  let direction = '';
-  if (CURRENT_FLOOR === 'second') {
-    direction += 'Go up the stairs near the main lobby to the second floor. ';
-  }
-  if (room.x < 200) direction += 'The room is on the left wing of the building.';
-  else if (room.x > 800) direction += 'The room is on the right wing of the building.';
-  else direction += 'The room is in the central part of the building.';
-
-  if (room.y < 250) direction += ' It is toward the back side, away from the main entrance.';
-  else if (room.y > 400) direction += ' It is near the main entrance and front hallway.';
-  else direction += ' It is along the main hallway.';
-  return direction;
-}
-
 function focusRoom(id) {
-  // Find which floor the room is on
   for (const fid of ['ground', 'second']) {
     if (FLOORS[fid].rooms.find(r => r.id === id)) {
       if (CURRENT_FLOOR !== fid) switchFloor(fid);
@@ -482,34 +291,9 @@ function focusRoom(id) {
   }
 }
 
-async function renderAnnouncements() {
-  const grid = document.getElementById('announceGrid');
-  grid.innerHTML = '<div style="color:var(--c-mute);padding:40px;text-align:center;grid-column:1/-1">Loading...</div>';
-  try {
-    const { announcements } = await api('/api/public/announcements');
-    if (!announcements.length) {
-      grid.innerHTML = '<div style="color:var(--c-mute);padding:40px;text-align:center;grid-column:1/-1">No announcements yet.</div>';
-      return;
-    }
-    grid.innerHTML = announcements.map(a => `
-      <article class="announce-card ${a.featured ? 'announce-card--featured' : ''}">
-        <span class="announce-tag tag--${a.type}">${a.type}</span>
-        <h3 class="announce-title">${escapeHtml(a.title)}</h3>
-        <p class="announce-body">${escapeHtml(a.body)}</p>
-        <div class="announce-foot">
-          <span>${escapeHtml(a.date_text || '')}</span>
-          <span>${escapeHtml(a.author || '')}</span>
-        </div>
-      </article>
-    `).join('');
-  } catch (e) {
-    grid.innerHTML = '<div style="color:var(--c-red);padding:40px;text-align:center;grid-column:1/-1">Failed to load announcements.</div>';
-  }
-}
-
+// ============ FAQ ============
 let activeFaqCat = 'All';
 let faqData = [];
-
 async function renderFaqs() {
   if (!faqData.length) {
     try {
@@ -518,144 +302,300 @@ async function renderFaqs() {
     } catch { faqData = []; }
   }
   const cats = ['All', ...new Set(faqData.map(f => f.cat))];
-  const filters = document.getElementById('faqFilters');
-  filters.innerHTML = cats.map(c => `
-    <button class="faq-chip ${c === activeFaqCat ? 'is-active' : ''}" onclick="filterFaq('${c}')">${escapeHtml(c)}</button>
-  `).join('');
-
-  const list = document.getElementById('faqList');
+  document.getElementById('faqFilters').innerHTML = cats.map(c => `<button class="faq-chip ${c === activeFaqCat ? 'is-active' : ''}" onclick="filterFaq('${c}')">${escapeHtml(c)}</button>`).join('');
   const filtered = activeFaqCat === 'All' ? faqData : faqData.filter(f => f.cat === activeFaqCat);
-  list.innerHTML = filtered.map((f, idx) => `
+  document.getElementById('faqList').innerHTML = filtered.map((f, idx) => `
     <div class="faq-item" data-idx="${idx}">
       <div class="faq-q" onclick="toggleFaq(${idx})">
         <div class="faq-q-text">${escapeHtml(f.q)}</div>
-        <div class="faq-q-toggle">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
-        </div>
+        <div class="faq-q-toggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg></div>
       </div>
       <div class="faq-a">${escapeHtml(f.a)}</div>
     </div>
   `).join('');
 }
 function filterFaq(cat) { activeFaqCat = cat; renderFaqs(); }
-function toggleFaq(idx) {
-  document.querySelector(`.faq-item[data-idx="${idx}"]`)?.classList.toggle('is-open');
-}
+function toggleFaq(idx) { document.querySelector(`.faq-item[data-idx="${idx}"]`)?.classList.toggle('is-open'); }
 
-async function startDocRequest() {
-  STATE.request = { office: null, document: null, refNumber: null, queueNumber: null, paymentMethod: null, paid: false, releaseDate: null };
-  STATE.currentStep = 1;
-  goDocStep(1);
-  await renderOfficeGrid();
-}
-function docRequestBack() {
-  if (STATE.currentStep > 1) goDocStep(STATE.currentStep - 1);
-  else showScreen('menu');
-}
-function goDocStep(step) {
-  STATE.currentStep = step;
-  document.querySelectorAll('.doc-step').forEach(d => {
-    d.style.display = parseInt(d.dataset.step) === step ? 'block' : 'none';
-  });
-  document.querySelectorAll('.step-item').forEach((item, i) => {
-    item.classList.remove('is-active', 'is-done');
-    if (i + 1 === step) item.classList.add('is-active');
-    if (i + 1 < step) item.classList.add('is-done');
-  });
-  const names = ['Select Office', 'Pick Document', 'Review Request', 'Choose Payment'];
-  setText('docStepLabel', `Step ${step} of 4 . ${names[step-1]}`);
-  if (step === 2) renderDocsGrid();
-  if (step === 3) renderReview();
-}
-
-async function renderOfficeGrid() {
-  const grid = document.getElementById('officeGrid');
+// ============ ASK STAFF ============
+async function renderAskStaff() {
   const offices = await getOffices();
-  grid.innerHTML = offices.map(o => `
-    <button class="office-card" onclick="selectOffice('${o.id}')">
-      <div class="office-card-icon" style="background:${o.color}">
+  document.getElementById('askOfficeGrid').innerHTML = offices.map(o => `
+    <button type="button" class="ask-office-btn" data-office-id="${o.id}" onclick="selectAskOffice('${o.id}')">
+      <div class="ask-office-icon" style="background:${o.color}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${o.icon_svg}</svg>
       </div>
-      <div class="office-card-name">${escapeHtml(o.name)}</div>
-      <div class="office-card-desc">${escapeHtml(o.description)}</div>
+      <div class="ask-office-name">${escapeHtml(o.name)}</div>
     </button>
-  `).join('');
+  `).join('') + `
+    <button type="button" class="ask-office-btn" data-office-id="" onclick="selectAskOffice('')">
+      <div class="ask-office-icon" style="background:#888"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></svg></div>
+      <div class="ask-office-name">General / Other</div>
+    </button>
+  `;
+  // Pre-fill student info if available
+  if (STATE.user) {
+    document.getElementById('askName').value = STATE.user.name || '';
+    document.getElementById('askEmail').value = STATE.user.email || '';
+  }
+  selectAskOffice(''); // default to general
+}
+function selectAskOffice(id) {
+  document.querySelectorAll('.ask-office-btn').forEach(b => b.classList.toggle('is-active', b.dataset.officeId === id));
+  STATE.askOfficeId = id;
 }
 
-async function selectOffice(id) {
-  const offices = await getOffices();
-  STATE.request.office = offices.find(o => o.id === id);
-  goDocStep(2);
+async function submitInquiry() {
+  const q = document.getElementById('askQuestion').value.trim();
+  const name = document.getElementById('askName').value.trim();
+  const email = document.getElementById('askEmail').value.trim();
+  if (!q) return toast('Please type your question.', 'error');
+  if (!email || !email.includes('@')) return toast('Please enter a valid Gmail address.', 'error');
+  try {
+    await api('/api/public/inquiries', {
+      method: 'POST',
+      body: { question: q, student_email: email, student_name: name || null, student_id: STATE.user?.id || null, office_id: STATE.askOfficeId || null },
+    });
+    STATE.thankYouMsg = 'Your question has been sent to the office staff.';
+    STATE.thankYouRef = `Reply will be sent to ${email}`;
+    showScreen('thankyou');
+  } catch (e) {
+    toast('Failed to send inquiry: ' + e.message, 'error');
+  }
 }
 
-async function renderDocsGrid() {
-  const grid = document.getElementById('docsGrid');
-  const docs = await getDocuments();
-  const filtered = docs.filter(d => d.office_id === STATE.request.office.id);
-  grid.innerHTML = filtered.map(d => `
-    <button class="doc-card" onclick="selectDoc('${d.id}')">
-      <div class="doc-card-body">
-        <div class="doc-card-name">${escapeHtml(d.name)}</div>
-        <div class="doc-card-meta">${escapeHtml(d.description)} . ${d.processing_days} ${d.processing_days === 1 ? 'day' : 'days'} processing</div>
+// ============ DOCUMENT REQUEST FLOW ============
+async function startDocFlow() {
+  STATE.request = { office: null, documents: [], refNumber: null, queueNumber: null, paymentMethod: null, paid: false, scheduledAt: null, totalFee: 0 };
+  if (STATE.user && STATE.user.id) {
+    showScreen('docselect');
+  } else {
+    showScreen('idgate');
+  }
+}
+
+async function submitIdGate() {
+  const id = document.getElementById('idgateInput').value.trim();
+  if (!id) return toast('Please enter your Student Number.', 'error');
+  try {
+    const { student } = await api(`/api/public/student/${encodeURIComponent(id)}`);
+    STATE.user = student;
+    toast(`Welcome, ${student.name.split(' ')[0]}.`);
+    showScreen('docselect');
+  } catch {
+    // Student not found - offer to generate
+    if (confirm(`Student Number ${id} was not found. Would you like to generate a new QR for this number?`)) {
+      document.getElementById('qrgenStudentId').value = id;
+      showScreen('qrgen');
+    }
+  }
+}
+
+// QR Generation
+async function generateQr() {
+  const id = document.getElementById('qrgenStudentId').value.trim();
+  const name = document.getElementById('qrgenStudentName').value.trim();
+  if (!id || !name) return toast('Please enter both Student Number and Full Name.', 'error');
+  try {
+    const { qr_code } = await api('/api/public/qr-generate', { method: 'POST', body: { student_id: id, student_name: name } });
+    STATE.user = { id, name, course: null, year: null, email: null };
+    document.getElementById('qrResultCard').innerHTML = `
+      <div class="qrresult-head">
+        <h3>Your Student QR Code is Ready</h3>
+        <p>Take a picture of this QR code or print it for your next transaction.</p>
       </div>
-      <div class="doc-card-fee">PHP ${d.fee}</div>
-    </button>
-  `).join('');
+      <div class="qrresult-qr">${buildQrSvg(qr_code, 280)}</div>
+      <div class="qrresult-meta">
+        <div class="qrresult-row"><span>Student Number</span><span class="qrresult-val">${escapeHtml(id)}</span></div>
+        <div class="qrresult-row"><span>Name</span><span class="qrresult-val">${escapeHtml(name)}</span></div>
+        <div class="qrresult-row"><span>QR Code</span><span class="qrresult-val mono">${escapeHtml(qr_code)}</span></div>
+        <div class="qrresult-row"><span>Generated</span><span class="qrresult-val">${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</span></div>
+      </div>
+      <p class="qrresult-hint">Take a picture of this QR code for your next transaction or print it.</p>
+    `;
+    showScreen('qrresult');
+  } catch (e) {
+    toast('Failed to generate QR: ' + e.message, 'error');
+  }
 }
 
-async function selectDoc(id) {
+function printQrCard() { window.print(); }
+function continueAfterQr() { showScreen('docselect'); }
+
+// Multi-document selection
+async function renderDocSelect() {
   const docs = await getDocuments();
-  STATE.request.document = docs.find(d => d.id === id);
-  goDocStep(3);
+  // Group by office
+  const offices = await getOffices();
+  const html = offices.map(o => {
+    const officeDocs = docs.filter(d => d.office_id === o.id);
+    if (!officeDocs.length) return '';
+    return `
+      <div class="docselect-office">
+        <div class="docselect-office-head" style="--c:${o.color}">
+          <div class="docselect-office-name">${escapeHtml(o.name)}</div>
+          <div class="docselect-office-sub">${escapeHtml(o.full_name)}</div>
+        </div>
+        <div class="docselect-list">
+          ${officeDocs.map(d => `
+            <label class="docselect-card" data-doc-id="${d.id}" data-office-id="${o.id}" data-fee="${d.fee}" data-days="${d.processing_days}">
+              <input type="checkbox" onchange="toggleDocSelect(this)" data-doc-id="${d.id}">
+              <div class="docselect-card-body">
+                <div class="docselect-card-name">${escapeHtml(d.name)}</div>
+                <div class="docselect-card-meta">${escapeHtml(d.description)} . ${d.processing_days} ${d.processing_days === 1 ? 'day' : 'days'} processing</div>
+              </div>
+              <div class="docselect-card-fee">PHP ${d.fee}</div>
+            </label>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
+  document.getElementById('docselectGrid').innerHTML = html;
+  STATE.request.documents = [];
+  updateDocSelectFoot();
 }
 
-function renderReview() {
-  const r = STATE.request;
-  const u = STATE.user || { name: 'Guest', id: '---' };
-  const release = addBusinessDays(new Date(), r.document.processing_days);
-  STATE.request.releaseDate = release;
+async function toggleDocSelect(checkbox) {
+  const docId = checkbox.dataset.docId;
+  const docs = await getDocuments();
+  const doc = docs.find(d => d.id === docId);
+  if (!doc) return;
+  const card = checkbox.closest('.docselect-card');
+  if (checkbox.checked) {
+    // Enforce single-office (otherwise scheduling logic gets confusing)
+    const existingOffice = STATE.request.documents[0]?.office_id;
+    if (existingOffice && existingOffice !== doc.office_id) {
+      checkbox.checked = false;
+      toast('You can only pick documents from one office in one request. Submit another request afterwards for other offices.', 'error');
+      return;
+    }
+    STATE.request.documents.push(doc);
+    card.classList.add('is-selected');
+  } else {
+    STATE.request.documents = STATE.request.documents.filter(d => d.id !== docId);
+    card.classList.remove('is-selected');
+  }
+  updateDocSelectFoot();
+}
 
-  document.getElementById('reviewCard').innerHTML = `
-    <div class="review-row">
-      <div class="review-label">Student</div>
-      <div class="review-value">${escapeHtml(u.name)}${u.id ? ` <span style="color:var(--c-mute);font-weight:500"> . ${u.id}</span>` : ''}</div>
-    </div>
-    <div class="review-row">
-      <div class="review-label">Office</div>
-      <div class="review-value">${escapeHtml(r.office.full_name)}</div>
-    </div>
-    <div class="review-row">
-      <div class="review-label">Document</div>
-      <div class="review-value">${escapeHtml(r.document.name)}</div>
-    </div>
-    <div class="review-row">
-      <div class="review-label">Processing Days</div>
-      <div class="review-value">${r.document.processing_days} ${r.document.processing_days === 1 ? 'working day' : 'working days'}</div>
-    </div>
-    <div class="review-row">
-      <div class="review-label">Estimated Pickup</div>
-      <div class="review-value">${release.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</div>
-    </div>
-    <div class="review-row">
-      <div class="review-label">Total Fee</div>
-      <div class="review-value review-value--big">PHP ${r.document.fee}.00</div>
+function updateDocSelectFoot() {
+  const foot = document.getElementById('docselectFoot');
+  const n = STATE.request.documents.length;
+  if (!n) { foot.hidden = true; return; }
+  foot.hidden = false;
+  const total = STATE.request.documents.reduce((s, d) => s + Number(d.fee), 0);
+  STATE.request.totalFee = total;
+  STATE.request.office = STATE.request.documents[0].office_id;
+  setText('docselectCount', `${n} document${n > 1 ? 's' : ''} selected`);
+  setText('docselectTotal', `PHP ${total.toFixed(2)}`);
+}
+
+function goToSchedule() {
+  if (!STATE.request.documents.length) return toast('Pick at least one document.', 'error');
+  showScreen('schedule');
+}
+
+// ============ SCHEDULE ============
+let SCHED_DATE = null;
+let SCHED_SLOT = null;
+
+function renderSchedule() {
+  SCHED_DATE = null;
+  SCHED_SLOT = null;
+  document.getElementById('schedNextBtn').disabled = true;
+  setText('schedSlotsTitle', 'Pick a date on the left, then a time slot.');
+  document.getElementById('scheduleSlots').innerHTML = '<div class="sched-empty">Available slots will appear here once you choose a date.</div>';
+
+  // Build a 14-day calendar starting from today (skip weekends)
+  const days = [];
+  const today = new Date();
+  for (let i = 0; i < 21 && days.length < 14; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() + i);
+    const dow = d.getDay();
+    if (dow === 0 || dow === 6) continue;
+    days.push(d);
+  }
+  document.getElementById('scheduleCalendar').innerHTML = `
+    <div class="sched-cal-head">Pick a date</div>
+    <div class="sched-cal-grid">
+      ${days.map(d => `
+        <button class="sched-day" data-date="${d.toISOString().slice(0,10)}" onclick="pickSchedDate('${d.toISOString().slice(0,10)}', this)">
+          <div class="sched-day-dow">${d.toLocaleDateString('en-US', { weekday: 'short' })}</div>
+          <div class="sched-day-num">${d.getDate()}</div>
+          <div class="sched-day-mo">${d.toLocaleDateString('en-US', { month: 'short' })}</div>
+        </button>
+      `).join('')}
     </div>
   `;
 }
 
-function addBusinessDays(date, days) {
-  const r = new Date(date);
-  let added = 0;
-  while (added < days) {
-    r.setDate(r.getDate() + 1);
-    const d = r.getDay();
-    if (d !== 0 && d !== 6) added++;
+async function pickSchedDate(date, btn) {
+  document.querySelectorAll('.sched-day').forEach(d => d.classList.remove('is-active'));
+  btn.classList.add('is-active');
+  SCHED_DATE = date;
+  SCHED_SLOT = null;
+  document.getElementById('schedNextBtn').disabled = true;
+  setText('schedSlotsTitle', `Available time slots on ${new Date(date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}`);
+  document.getElementById('scheduleSlots').innerHTML = '<div class="sched-empty">Loading...</div>';
+  try {
+    const { slots } = await api(`/api/public/schedule-availability?office_id=${STATE.request.office}&date=${date}`);
+    if (!slots.length) {
+      document.getElementById('scheduleSlots').innerHTML = '<div class="sched-empty">No slots available on this date.</div>';
+      return;
+    }
+    document.getElementById('scheduleSlots').innerHTML = slots.map(s => {
+      const isFull = s.available <= 0;
+      const time = `${formatHour(s.hour)} - ${formatHour(s.hour + 1)}`;
+      return `
+        <button class="sched-slot ${isFull ? 'is-full' : ''}" data-start="${s.start}" ${isFull ? 'disabled' : `onclick="pickSchedSlot('${s.start}', this)"`}>
+          <div class="sched-slot-time">${time}</div>
+          <div class="sched-slot-cap">
+            ${isFull ? 'Full' : `${s.available} of ${s.capacity} slots open`}
+          </div>
+        </button>
+      `;
+    }).join('');
+  } catch (e) {
+    document.getElementById('scheduleSlots').innerHTML = '<div class="sched-empty">Could not load slots: ' + escapeHtml(e.message) + '</div>';
   }
-  return r;
+}
+function pickSchedSlot(startIso, btn) {
+  document.querySelectorAll('.sched-slot').forEach(s => s.classList.remove('is-active'));
+  btn.classList.add('is-active');
+  SCHED_SLOT = startIso;
+  STATE.request.scheduledAt = startIso;
+  document.getElementById('schedNextBtn').disabled = false;
+}
+function formatHour(h) {
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  return `${h12}:00 ${ampm}`;
+}
+
+function goToPayment() {
+  if (!SCHED_SLOT) return toast('Pick a time slot.', 'error');
+  showScreen('payment');
+}
+
+// ============ PAYMENT ============
+function renderPayment() {
+  const r = STATE.request;
+  const u = STATE.user || { name: 'Guest', id: '---' };
+  const sched = new Date(r.scheduledAt);
+  document.getElementById('paymentReviewCard').innerHTML = `
+    <div class="review-row"><div class="review-label">Student</div><div class="review-value">${escapeHtml(u.name)}${u.id ? ` <span style="color:var(--c-mute);font-weight:500"> . ${u.id}</span>` : ''}</div></div>
+    <div class="review-row"><div class="review-label">Office</div><div class="review-value">${escapeHtml(r.office.toUpperCase())}</div></div>
+    <div class="review-row"><div class="review-label">Documents (${r.documents.length})</div><div class="review-value" style="text-align:right">${r.documents.map(d => `${escapeHtml(d.name)} <span style="color:var(--c-mute);font-weight:500">. PHP ${d.fee}</span>`).join('<br>')}</div></div>
+    <div class="review-row"><div class="review-label">Claim Schedule</div><div class="review-value">${sched.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })} . ${formatHour(sched.getHours())} - ${formatHour(sched.getHours() + 1)}</div></div>
+    <div class="review-row"><div class="review-label">Total Fee</div><div class="review-value review-value--big">PHP ${r.totalFee.toFixed(2)}</div></div>
+  `;
 }
 
 async function selectPay(method) {
-  STATE.request.paymentMethod = method;
+  const r = STATE.request;
+  r.paymentMethod = method;
   const u = STATE.user || { name: 'Guest User', id: null };
   try {
     const { request } = await api('/api/public/requests', {
@@ -663,52 +603,27 @@ async function selectPay(method) {
       body: {
         student_id: u.id,
         student_name: u.name,
-        office_id: STATE.request.office.id,
-        document_id: STATE.request.document.id,
+        office_id: r.office,
+        document_ids: r.documents.map(d => d.id),
         payment_method: method,
+        scheduled_at: r.scheduledAt,
       },
     });
-    STATE.request.refNumber = request.ref_number;
-    STATE.request.queueNumber = request.queue_number;
-    STATE.request.paid = !!request.paid;
-    STATE.request.releaseDate = new Date(request.release_date);
-
+    r.refNumber = request.ref_number;
+    r.queueNumber = request.queue_number;
+    r.paid = !!request.paid;
     if (method === 'ewallet') showQrPay();
     else showReceipt();
   } catch (e) {
-    toast('Failed to submit request. Please try again.', 'error');
+    toast('Failed to submit request: ' + e.message, 'error');
   }
 }
 
 function showQrPay() {
   showScreen('qrpay');
-  setText('qrAmount', `PHP ${STATE.request.document.fee}.00`);
+  setText('qrAmount', `PHP ${STATE.request.totalFee.toFixed(2)}`);
   setText('qrRef', `REF: ${STATE.request.refNumber}`);
-  renderQrCode();
-}
-
-function renderQrCode() {
-  const ref = STATE.request.refNumber;
-  const seed = ref.split('').reduce((s, c) => s + c.charCodeAt(0), 0);
-  const cells = 25;
-  let svg = `<svg viewBox="0 0 ${cells} ${cells}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%">`;
-  svg += `<rect width="${cells}" height="${cells}" fill="white"/>`;
-  const marker = (x, y) => {
-    svg += `<rect x="${x}" y="${y}" width="7" height="7" fill="black"/>`;
-    svg += `<rect x="${x+1}" y="${y+1}" width="5" height="5" fill="white"/>`;
-    svg += `<rect x="${x+2}" y="${y+2}" width="3" height="3" fill="black"/>`;
-  };
-  marker(0, 0); marker(cells-7, 0); marker(0, cells-7);
-  let s = seed;
-  for (let y = 0; y < cells; y++) {
-    for (let x = 0; x < cells; x++) {
-      if ((x < 8 && y < 8) || (x > cells-9 && y < 8) || (x < 8 && y > cells-9)) continue;
-      s = (s * 1103515245 + 12345) & 0x7fffffff;
-      if (s % 2 === 0) svg += `<rect x="${x}" y="${y}" width="1" height="1" fill="black"/>`;
-    }
-  }
-  svg += '</svg>';
-  document.getElementById('qrCode').innerHTML = svg;
+  document.getElementById('qrCode').innerHTML = buildQrSvg(STATE.request.refNumber, 280);
 }
 
 async function finishPayment() {
@@ -717,25 +632,23 @@ async function finishPayment() {
     STATE.request.paid = true;
     toast('Payment confirmed. Your receipt is ready.');
     showReceipt();
-  } catch (e) {
-    toast('Could not confirm payment.', 'error');
-  }
+  } catch (e) { toast('Could not confirm payment: ' + e.message, 'error'); }
 }
 
+// ============ RECEIPT ============
 function showReceipt() {
   showScreen('receipt');
   const r = STATE.request;
   const u = STATE.user || { name: 'Guest', id: '---' };
-  const card = document.getElementById('receiptCard');
+  const sched = new Date(r.scheduledAt);
   const paid = r.paid ? 'PAID' : 'UNPAID. Pay at Cashier.';
   const paidColor = r.paid ? 'var(--c-green)' : '#E53935';
-  card.innerHTML = `
+  document.getElementById('receiptCard').innerHTML = `
     <div class="receipt-head">
       <div class="receipt-check">
         ${r.paid
           ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>'
-          : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 8v4M12 16h.01"/><circle cx="12" cy="12" r="9"/></svg>'
-        }
+          : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 8v4M12 16h.01"/><circle cx="12" cy="12" r="9"/></svg>'}
       </div>
       <div class="receipt-title">CAVITE STATE UNIVERSITY</div>
       <div class="receipt-sub">Cavite City Campus . Document Request</div>
@@ -747,22 +660,46 @@ function showReceipt() {
     <div class="receipt-rows">
       <div class="receipt-row"><span class="receipt-row-label">Student</span><span class="receipt-row-value">${escapeHtml(u.name)}</span></div>
       ${u.id ? `<div class="receipt-row"><span class="receipt-row-label">Student ID</span><span class="receipt-row-value">${u.id}</span></div>` : ''}
-      <div class="receipt-row"><span class="receipt-row-label">Office</span><span class="receipt-row-value">${escapeHtml(r.office.name)}</span></div>
-      <div class="receipt-row"><span class="receipt-row-label">Document</span><span class="receipt-row-value">${escapeHtml(r.document.name)}</span></div>
+      <div class="receipt-row"><span class="receipt-row-label">Office</span><span class="receipt-row-value">${escapeHtml(r.office.toUpperCase())}</span></div>
+      <div class="receipt-row"><span class="receipt-row-label">Documents</span><span class="receipt-row-value" style="text-align:right">${r.documents.map(d => escapeHtml(d.name)).join('<br>')}</span></div>
       <div class="receipt-row"><span class="receipt-row-label">Queue Number</span><span class="receipt-row-value">#${r.queueNumber}</span></div>
-      <div class="receipt-row"><span class="receipt-row-label">Pickup On or After</span><span class="receipt-row-value">${r.releaseDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span></div>
+      <div class="receipt-row"><span class="receipt-row-label">Claim Schedule</span><span class="receipt-row-value">${sched.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}<br>${formatHour(sched.getHours())} - ${formatHour(sched.getHours()+1)}</span></div>
       <div class="receipt-row"><span class="receipt-row-label">Payment Method</span><span class="receipt-row-value">${r.paymentMethod === 'ewallet' ? 'E-Wallet (QR Ph)' : 'Cash at Cashier'}</span></div>
       <div class="receipt-row"><span class="receipt-row-label">Status</span><span class="receipt-row-value" style="color:${paidColor};font-weight:700">${paid}</span></div>
-      <div class="receipt-row receipt-row--big"><span class="receipt-row-label">Total Fee</span><span class="receipt-row-value">PHP ${r.document.fee}.00</span></div>
+      <div class="receipt-row receipt-row--big"><span class="receipt-row-label">Total Fee</span><span class="receipt-row-value">PHP ${r.totalFee.toFixed(2)}</span></div>
     </div>
-    <div class="receipt-foot">
-      Bring this receipt and a valid ID when claiming your document.<br>
-      Generated on ${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}
-    </div>
+    <div class="receipt-foot">Bring this receipt and a valid ID when claiming your documents.<br>Generated on ${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</div>
   `;
 }
 function printReceipt() { window.print(); }
 
+// ============ THANK YOU ============
+function runThankYou() {
+  const r = STATE.request;
+  if (r && r.refNumber) {
+    setText('thankYouSub', `Your reference number is ready. Please claim your documents on the scheduled time.`);
+    document.getElementById('thankYouRef').innerHTML = `<span class="ty-ref-label">Reference</span><span class="ty-ref-num">${r.refNumber}</span>`;
+  } else if (STATE.thankYouMsg) {
+    setText('thankYouSub', STATE.thankYouMsg);
+    document.getElementById('thankYouRef').innerHTML = STATE.thankYouRef ? `<span class="ty-ref-label">Note</span><span class="ty-ref-note">${escapeHtml(STATE.thankYouRef)}</span>` : '';
+  } else {
+    setText('thankYouSub', 'Action completed successfully.');
+    document.getElementById('thankYouRef').innerHTML = '';
+  }
+  // Reset transient data
+  STATE.thankYouMsg = null;
+  STATE.thankYouRef = null;
+  // Auto-redirect countdown
+  let n = 10;
+  setText('thankYouCount', n);
+  THANKYOU_TIMER = setInterval(() => {
+    n -= 1;
+    setText('thankYouCount', n);
+    if (n <= 0) { clearInterval(THANKYOU_TIMER); goHome(); }
+  }, 1000);
+}
+
+// ============ QUEUE ============
 async function renderQueue() {
   const grid = document.getElementById('queueGrid');
   grid.innerHTML = '<div style="color:var(--c-mute);padding:40px;text-align:center;grid-column:1/-1">Loading...</div>';
@@ -774,57 +711,63 @@ async function renderQueue() {
       return `
         <div class="queue-card" style="--accent:${o.color}">
           <div class="queue-card-head">
-            <div class="queue-icon" style="background:${o.color}">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${o.icon_svg}</svg>
-            </div>
+            <div class="queue-icon" style="background:${o.color}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${o.icon_svg}</svg></div>
             <div>
               <div class="queue-office-name">${escapeHtml(o.name)}</div>
               <div class="queue-office-status">Online . Now serving</div>
             </div>
           </div>
-          <div class="queue-now">
-            <div class="queue-now-label">Now Serving</div>
-            <div class="queue-now-num">${String(q.current).padStart(3, '0')}</div>
-          </div>
+          <div class="queue-now"><div class="queue-now-label">Now Serving</div><div class="queue-now-num">${String(q.current).padStart(3, '0')}</div></div>
           <div class="queue-stats">
-            <div class="queue-stat">
-              <div class="queue-stat-num">${q.waiting}</div>
-              <div class="queue-stat-label">In Queue</div>
-            </div>
-            <div class="queue-stat">
-              <div class="queue-stat-num">~${q.avg_min * q.waiting}m</div>
-              <div class="queue-stat-label">Est. Wait</div>
-            </div>
+            <div class="queue-stat"><div class="queue-stat-num">${q.waiting}</div><div class="queue-stat-label">In Queue</div></div>
+            <div class="queue-stat"><div class="queue-stat-num">~${q.avg_min * q.waiting}m</div><div class="queue-stat-label">Est. Wait</div></div>
           </div>
         </div>
       `;
     }).join('');
-  } catch (e) {
+  } catch {
     grid.innerHTML = '<div style="color:var(--c-red);padding:40px;text-align:center;grid-column:1/-1">Failed to load queue data.</div>';
   }
 }
 
+// ============ MISSION ============
 async function renderMission() {
   try {
     const { mission } = await api('/api/public/mission');
     if (!mission) return;
     document.querySelector('[data-screen="mission"] .mv-grid').innerHTML = `
-      <div class="mv-card">
-        <div class="mv-card-tag">Vision</div>
-        <p>${escapeHtml(mission.vision)}</p>
-      </div>
-      <div class="mv-card">
-        <div class="mv-card-tag">Mission</div>
-        <p>${escapeHtml(mission.mission)}</p>
-      </div>
-      <div class="mv-card">
-        <div class="mv-card-tag">Core Values</div>
-        <p>${escapeHtml(mission.core_values)}</p>
-      </div>
+      <div class="mv-card"><div class="mv-card-tag">Vision</div><p>${escapeHtml(mission.vision)}</p></div>
+      <div class="mv-card"><div class="mv-card-tag">Mission</div><p>${escapeHtml(mission.mission)}</p></div>
+      <div class="mv-card"><div class="mv-card-tag">Core Values</div><p>${escapeHtml(mission.core_values)}</p></div>
     `;
-  } catch (e) { console.error(e); }
+  } catch {}
 }
 
+// ============ FAKE QR SVG GENERATOR ============
+function buildQrSvg(seedStr, sizePx) {
+  const seed = seedStr.split('').reduce((s, c) => s + c.charCodeAt(0), 0);
+  const cells = 25;
+  let svg = `<svg viewBox="0 0 ${cells} ${cells}" xmlns="http://www.w3.org/2000/svg" style="width:${sizePx}px;height:${sizePx}px">`;
+  svg += `<rect width="${cells}" height="${cells}" fill="white"/>`;
+  const m = (x, y) => {
+    svg += `<rect x="${x}" y="${y}" width="7" height="7" fill="black"/>`;
+    svg += `<rect x="${x+1}" y="${y+1}" width="5" height="5" fill="white"/>`;
+    svg += `<rect x="${x+2}" y="${y+2}" width="3" height="3" fill="black"/>`;
+  };
+  m(0, 0); m(cells-7, 0); m(0, cells-7);
+  let s = seed;
+  for (let y = 0; y < cells; y++) {
+    for (let x = 0; x < cells; x++) {
+      if ((x < 8 && y < 8) || (x > cells-9 && y < 8) || (x < 8 && y > cells-9)) continue;
+      s = (s * 1103515245 + 12345) & 0x7fffffff;
+      if (s % 2 === 0) svg += `<rect x="${x}" y="${y}" width="1" height="1" fill="black"/>`;
+    }
+  }
+  svg += '</svg>';
+  return svg;
+}
+
+// ============ HELPERS ============
 function escapeHtml(s) {
   if (s == null) return '';
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -840,21 +783,25 @@ function toast(msg, kind = 'ok') {
   toastTimer = setTimeout(() => t.classList.remove('is-show'), 2800);
 }
 
+// ============ INIT ============
 window.addEventListener('DOMContentLoaded', () => {
   tickClock();
-  setInterval(tickClock, 1000 * 30);
+  setInterval(tickClock, 30000);
+  renderHome();
+  startSlideshow();
 
   setInterval(() => {
     const active = document.querySelector('.screen.active')?.dataset.screen;
     if (active === 'queue') renderQueue();
-    if (active === 'menu') renderMenu();
+    if (active === 'home') renderHome();
   }, 30000);
 
   document.querySelectorAll('.modal').forEach(m => {
     m.addEventListener('click', e => { if (e.target === m) m.classList.remove('is-open'); });
   });
-
-  document.getElementById('loginIdInput')?.addEventListener('keypress', e => {
-    if (e.key === 'Enter') manualLogin();
+  document.getElementById('helpDrawer')?.addEventListener('click', e => {
+    if (e.target.id === 'helpDrawer') closeHelp();
   });
+
+  document.getElementById('idgateInput')?.addEventListener('keypress', e => { if (e.key === 'Enter') submitIdGate(); });
 });

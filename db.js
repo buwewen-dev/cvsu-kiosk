@@ -207,6 +207,75 @@ async function migrate() {
       updated_at TIMESTAMP DEFAULT ${NOW}
     )
   `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS request_items (
+      id ${PK},
+      request_id INTEGER NOT NULL,
+      document_id TEXT NOT NULL,
+      document_name TEXT NOT NULL,
+      fee REAL NOT NULL
+    )
+  `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS inquiries (
+      id ${PK},
+      question TEXT NOT NULL,
+      student_email TEXT,
+      student_name TEXT,
+      student_id TEXT,
+      office_id TEXT,
+      status TEXT DEFAULT 'pending',
+      reply TEXT,
+      replied_at TIMESTAMP,
+      replied_by TEXT,
+      created_at TIMESTAMP DEFAULT ${NOW}
+    )
+  `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS office_capacity (
+      office_id TEXT PRIMARY KEY,
+      per_hour INTEGER DEFAULT 20,
+      hours_start TEXT DEFAULT '08:00',
+      hours_end TEXT DEFAULT '17:00'
+    )
+  `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS student_qrs (
+      qr_code TEXT PRIMARY KEY,
+      student_id TEXT,
+      student_name TEXT,
+      created_at TIMESTAMP DEFAULT ${NOW}
+    )
+  `);
+
+  // Backfill new columns on requests if they don't exist yet
+  await addColumnIfMissing('requests', 'scheduled_at', 'TEXT');
+  await addColumnIfMissing('requests', 'total_fee', 'REAL');
+}
+
+async function addColumnIfMissing(table, column, type) {
+  try {
+    if (USE_PG) {
+      const r = await query(
+        `SELECT column_name FROM information_schema.columns WHERE table_name = $1 AND column_name = $2`,
+        [table, column]
+      );
+      if (!r.length) {
+        await pgPool.query(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+      }
+    } else {
+      const info = db.prepare(`PRAGMA table_info(${table})`).all();
+      if (!info.find(c => c.name === column)) {
+        db.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`).run();
+      }
+    }
+  } catch (e) {
+    console.warn(`[db] Could not add column ${table}.${column}:`, e.message);
+  }
 }
 
 module.exports = { query, get, run, migrate, USE_PG };

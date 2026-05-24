@@ -43,9 +43,149 @@ function showTab(name) {
   if (name === 'overview') loadOverview();
   if (name === 'users') loadUsers();
   if (name === 'all-requests') loadAllRequests();
+  if (name === 'inquiries') loadInquiries();
+  if (name === 'capacity') loadCapacity();
   if (name === 'announcements') loadAnnouncements();
   if (name === 'mission') loadMission();
   if (name === 'floor-plan') loadFloorPlan();
+}
+
+// ============ INQUIRIES (system admin: sees all) ============
+let INQ_FILTER = 'all';
+let INQ_DATA = [];
+
+async function loadInquiries() {
+  try {
+    const { inquiries } = await api('/api/admin/inquiries');
+    INQ_DATA = inquiries;
+    renderInquiryList();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function filterInquiries(f) {
+  INQ_FILTER = f;
+  document.querySelectorAll('.filter-chip[data-inqf]').forEach(c => c.classList.toggle('is-active', c.dataset.inqf === f));
+  renderInquiryList();
+}
+
+function renderInquiryList() {
+  const filtered = INQ_FILTER === 'all' ? INQ_DATA : INQ_DATA.filter(i => i.status === INQ_FILTER);
+  const list = document.getElementById('inquiryList');
+  const empty = document.getElementById('inquiriesEmpty');
+  if (!filtered.length) { list.innerHTML = ''; empty.hidden = false; return; }
+  empty.hidden = true;
+  list.innerHTML = filtered.map(i => `
+    <div class="inquiry-item" onclick="openInquiry(${i.id})">
+      <div class="inquiry-head">
+        <div class="inquiry-from">
+          <span class="inquiry-name">${escapeHtml(i.student_name || 'Anonymous')}</span>
+          ${i.student_id ? `<span class="inquiry-id">${escapeHtml(i.student_id)}</span>` : ''}
+          ${i.office_id ? `<span class="pill pill--office">${escapeHtml(i.office_id)}</span>` : '<span class="pill pill--inactive">General</span>'}
+        </div>
+        <span class="pill pill--${i.status === 'replied' ? 'released' : 'pending'}">${i.status}</span>
+      </div>
+      <div class="inquiry-q">${escapeHtml(i.question)}</div>
+      <div class="inquiry-meta">
+        <span>${i.student_email ? '<b>Reply to:</b> ' + escapeHtml(i.student_email) : 'No email provided'}</span>
+        <span>${formatDate(i.created_at)}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function openInquiry(id) {
+  const inq = INQ_DATA.find(x => x.id === id);
+  if (!inq) return;
+  document.getElementById('inquiryModalBody').innerHTML = `
+    <div class="modal-head">
+      <h3>Inquiry from ${escapeHtml(inq.student_name || 'student')}</h3>
+      <button class="modal-close" onclick="closeInquiry()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="inquiry-grid">
+        <div><span class="req-detail-label">Student</span><span class="req-detail-value">${escapeHtml(inq.student_name || 'Anonymous')}</span></div>
+        <div><span class="req-detail-label">Student ID</span><span class="req-detail-value">${escapeHtml(inq.student_id || '-')}</span></div>
+        <div><span class="req-detail-label">Email</span><span class="req-detail-value"><a href="mailto:${escapeHtml(inq.student_email || '')}">${escapeHtml(inq.student_email || '-')}</a></span></div>
+        <div><span class="req-detail-label">Office</span><span class="req-detail-value">${escapeHtml(inq.office_id || 'General')}</span></div>
+        <div><span class="req-detail-label">Submitted</span><span class="req-detail-value">${formatDate(inq.created_at)}</span></div>
+        <div><span class="req-detail-label">Status</span><span class="req-detail-value"><span class="pill pill--${inq.status === 'replied' ? 'released' : 'pending'}">${inq.status}</span></span></div>
+      </div>
+      <div class="inquiry-q-detail"><h4>Question</h4><p>${escapeHtml(inq.question)}</p></div>
+      <label class="field"><span>Reply (saved as a note. Send the actual email through Gmail)</span>
+        <textarea id="inqReply" rows="5">${escapeHtml(inq.reply || '')}</textarea>
+      </label>
+      ${inq.replied_at ? `<p style="font-size:12px;color:var(--c-mute)">Last replied by ${escapeHtml(inq.replied_by || 'staff')} on ${formatDate(inq.replied_at)}</p>` : ''}
+      <div class="req-actions-row" style="margin-top: 18px">
+        ${inq.student_email ? `<a class="btn-secondary" href="mailto:${escapeHtml(inq.student_email)}?subject=Re: Your CvSU Kiosk Inquiry&body=${encodeURIComponent('Hi ' + (inq.student_name || 'student') + ',%0A%0AThank you for reaching out. Here is your answer:%0A%0A')}" target="_blank">Open in Gmail</a>` : ''}
+        <button class="btn-primary" onclick="saveInquiryReply(${inq.id})">Save Reply / Mark Replied</button>
+        <button class="btn-danger" onclick="deleteInquiry(${inq.id})">Delete</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('inquiryModal').classList.add('is-open');
+}
+function closeInquiry() { document.getElementById('inquiryModal').classList.remove('is-open'); }
+
+async function saveInquiryReply(id) {
+  const reply = document.getElementById('inqReply').value.trim();
+  if (!reply) return toast('Please type a reply note first.', 'error');
+  try {
+    await api(`/api/admin/inquiries/${id}`, { method: 'PATCH', body: { reply } });
+    toast('Reply saved. Inquiry marked as replied.', 'success');
+    closeInquiry();
+    loadInquiries();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function deleteInquiry(id) {
+  if (!confirm('Delete this inquiry?')) return;
+  try {
+    await api(`/api/admin/inquiries/${id}`, { method: 'DELETE' });
+    toast('Deleted.', 'success');
+    closeInquiry();
+    loadInquiries();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// ============ CAPACITY ============
+async function loadCapacity() {
+  try {
+    const { capacity } = await api('/api/admin/capacity');
+    const offices = [
+      { id: 'registrar', label: 'Registrar' },
+      { id: 'cashier', label: 'Cashier' },
+      { id: 'osas', label: 'OSAS' },
+    ];
+    document.getElementById('capacityList').innerHTML = offices.map(o => {
+      const c = capacity.find(x => x.office_id === o.id) || { per_hour: 20, hours_start: '08:00', hours_end: '17:00' };
+      return `
+        <div class="capacity-row">
+          <div class="capacity-row-name">${escapeHtml(o.label)}</div>
+          <label class="field" style="flex:1"><span>Releases per hour</span>
+            <input type="number" min="1" max="200" id="cap_${o.id}_per_hour" value="${c.per_hour}">
+          </label>
+          <label class="field" style="flex:1"><span>Office Hours Start</span>
+            <input type="time" id="cap_${o.id}_start" value="${c.hours_start}">
+          </label>
+          <label class="field" style="flex:1"><span>Office Hours End</span>
+            <input type="time" id="cap_${o.id}_end" value="${c.hours_end}">
+          </label>
+          <button class="btn-primary" onclick="saveCapacity('${o.id}')">Save</button>
+        </div>
+      `;
+    }).join('');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function saveCapacity(officeId) {
+  const per_hour = parseInt(document.getElementById(`cap_${officeId}_per_hour`).value);
+  const hours_start = document.getElementById(`cap_${officeId}_start`).value;
+  const hours_end = document.getElementById(`cap_${officeId}_end`).value;
+  if (!per_hour || per_hour < 1) return toast('Per hour must be at least 1.', 'error');
+  try {
+    await api(`/api/admin/capacity/${officeId}`, { method: 'PATCH', body: { per_hour, hours_start, hours_end } });
+    toast(`Capacity saved for ${officeId}.`, 'success');
+  } catch (e) { toast(e.message, 'error'); }
 }
 
 // ============ OVERVIEW ============

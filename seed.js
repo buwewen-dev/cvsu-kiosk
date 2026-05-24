@@ -34,6 +34,19 @@ async function seed() {
     await run('INSERT INTO queue_state (office_id, current_number, last_issued) VALUES (?, ?, ?)', [o[0], 0, 0]);
   }
 
+  // ============ OFFICE CAPACITY (releases per hour) ============
+  await run('INSERT INTO office_capacity (office_id, per_hour, hours_start, hours_end) VALUES (?, ?, ?, ?)', ['registrar', 20, '08:00', '17:00']);
+  await run('INSERT INTO office_capacity (office_id, per_hour, hours_start, hours_end) VALUES (?, ?, ?, ?)', ['cashier',   30, '08:00', '16:30']);
+  await run('INSERT INTO office_capacity (office_id, per_hour, hours_start, hours_end) VALUES (?, ?, ?, ?)', ['osas',      15, '08:00', '17:00']);
+
+  // Sample pending inquiries so admin has something to demo
+  await run('INSERT INTO inquiries (question, student_email, student_name, student_id, office_id, status) VALUES (?, ?, ?, ?, ?, ?)',
+    ['How much is the express fee for a Transcript of Records and how many days will it take?', 'juan.dlc@cvsu.edu.ph', 'Juan Dela Cruz', '202401111', 'registrar', 'pending']);
+  await run('INSERT INTO inquiries (question, student_email, student_name, student_id, office_id, status) VALUES (?, ?, ?, ?, ?, ?)',
+    ['Can I pay my Good Moral fee online through GCash even if I will claim the document next week?', 'maria.s@cvsu.edu.ph', 'Maria Santos', '202401112', 'cashier', 'pending']);
+  await run('INSERT INTO inquiries (question, student_email, student_name, student_id, office_id, status) VALUES (?, ?, ?, ?, ?, ?)',
+    ['What are the requirements to apply for a scholarship under OSAS this semester?', 'pedro.r@cvsu.edu.ph', 'Pedro Reyes', '202401113', 'osas', 'pending']);
+
   // ============ DOCUMENTS ============
   const docs = [
     ['tor', 'registrar', 'Transcript of Records', 'Official academic transcript', 250, 5],

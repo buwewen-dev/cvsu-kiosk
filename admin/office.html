@@ -32,6 +32,11 @@
       Requests
       <span class="sb-badge" id="badgePending">0</span>
     </button>
+    <button class="sb-link" data-tab="inquiries" onclick="showTab('inquiries')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      Inquiries
+      <span class="sb-badge" id="badgeInquiries">0</span>
+    </button>
     <button class="sb-link" data-tab="announcements" onclick="showTab('announcements')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/></svg>
       Announcements
@@ -116,6 +121,31 @@
       <div class="empty" id="requestsEmpty" hidden>No requests match the selected filter.</div>
     </div>
   </section>
+
+  <!-- INQUIRIES TAB -->
+  <section class="tab" data-tab="inquiries">
+    <header class="page-head">
+      <div>
+        <h1>Student Inquiries</h1>
+        <p class="page-sub">Questions sent from the kiosk. Reply through Gmail using the student's email.</p>
+      </div>
+      <button class="btn-secondary" onclick="loadInquiries()">Refresh</button>
+    </header>
+    <div class="filters">
+      <button class="filter-chip is-active" data-inqf="all" onclick="filterInquiries('all')">All</button>
+      <button class="filter-chip" data-inqf="pending" onclick="filterInquiries('pending')">Pending</button>
+      <button class="filter-chip" data-inqf="replied" onclick="filterInquiries('replied')">Replied</button>
+    </div>
+    <div class="card">
+      <div class="inquiry-list" id="inquiryList"></div>
+      <div class="empty" id="inquiriesEmpty" hidden>No inquiries yet.</div>
+    </div>
+  </section>
+
+  <!-- Inquiry Reply Modal -->
+  <div class="modal" id="inquiryModal">
+    <div class="modal-card modal-card--lg" id="inquiryModalBody"></div>
+  </div>
 
   <!-- ANNOUNCEMENTS TAB -->
   <section class="tab" data-tab="announcements">

@@ -13,193 +13,126 @@
 
 <div id="app">
 
-  <!-- ============ WELCOME / LOCK SCREEN ============ -->
-  <section class="screen screen--welcome active" data-screen="welcome">
-    <div class="welcome-bg">
-      <div class="bg-orb bg-orb--1"></div>
-      <div class="bg-orb bg-orb--2"></div>
-      <div class="bg-orb bg-orb--3"></div>
-      <svg class="bg-grid" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <pattern id="grid-pattern" width="80" height="80" patternUnits="userSpaceOnUse">
-            <path d="M 80 0 L 0 0 0 80" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#grid-pattern)"/>
-      </svg>
+  <!-- ============ MAIN HOME (announcement slideshow) ============ -->
+  <section class="screen screen--home active" data-screen="home">
+    <header class="home-topbar">
+      <div class="home-brand">
+        <svg viewBox="0 0 80 80" width="44" height="44">
+          <circle cx="40" cy="40" r="38" fill="none" stroke="#FFD24D" stroke-width="2"/>
+          <circle cx="40" cy="40" r="30" fill="#0E5732"/>
+          <text x="40" y="48" text-anchor="middle" fill="#FFD24D" font-size="22" font-weight="800" font-family="Plus Jakarta Sans">CvSU</text>
+        </svg>
+        <div>
+          <div class="home-brand-name">Cavite State University</div>
+          <div class="home-brand-campus">Cavite City Campus . Multi-Service Kiosk</div>
+        </div>
+      </div>
+      <div class="home-clock">
+        <div class="clock-time" id="welcomeTime">--:--</div>
+        <div class="clock-date" id="welcomeDate">Loading...</div>
+      </div>
+    </header>
+
+    <div class="slideshow-wrap">
+      <div class="slideshow" id="slideshow"></div>
+      <div class="slideshow-dots" id="slideshowDots"></div>
     </div>
 
-    <div class="welcome-content">
-      <div class="welcome-top">
-        <div class="brand-mark">
-          <svg viewBox="0 0 80 80" class="brand-seal">
-            <circle cx="40" cy="40" r="38" fill="none" stroke="#FFD24D" stroke-width="2"/>
-            <circle cx="40" cy="40" r="30" fill="#0E5732"/>
-            <text x="40" y="48" text-anchor="middle" fill="#FFD24D" font-size="22" font-weight="800" font-family="Plus Jakarta Sans">CvSU</text>
-          </svg>
-          <div class="brand-text">
-            <div class="brand-name">Cavite State University</div>
-            <div class="brand-campus">Cavite City Campus</div>
-          </div>
-        </div>
-        <div class="welcome-clock">
-          <div class="clock-time" id="welcomeTime">--:--</div>
-          <div class="clock-date" id="welcomeDate">Loading...</div>
-        </div>
+    <div class="home-foot">
+      <div class="home-foot-stats">
+        <div class="foot-stat"><div class="foot-stat-num" id="statQueue">0</div><div class="foot-stat-label">In Queue Today</div></div>
+        <div class="foot-divider"></div>
+        <div class="foot-stat"><div class="foot-stat-num" id="statDocs">0</div><div class="foot-stat-label">Document Types</div></div>
+        <div class="foot-divider"></div>
+        <div class="foot-stat"><div class="foot-stat-num">3</div><div class="foot-stat-label">Offices Online</div></div>
       </div>
-
-      <div class="welcome-hero">
-        <div class="welcome-eyebrow">Multi-Service University Kiosk</div>
-        <h1 class="welcome-title">
-          <span class="title-line">Student services,</span>
-          <span class="title-line title-line--accent">in one tap.</span>
-        </h1>
-        <p class="welcome-sub">Request documents, find offices, check announcements, and skip the queue. Tap to begin.</p>
-
-        <div class="welcome-actions">
-          <button class="btn btn--primary btn--xl" onclick="openLogin()">
-            <span class="btn-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <rect x="3" y="3" width="7" height="7" rx="1"/>
-                <rect x="14" y="3" width="7" height="7" rx="1"/>
-                <rect x="3" y="14" width="7" height="7" rx="1"/>
-                <path d="M14 14h3v3h-3zM18 14h3M14 18h3v3M21 18v3"/>
-              </svg>
-            </span>
-            Scan Student ID
-          </button>
-          <button class="btn btn--ghost btn--xl" onclick="enterAsGuest()">Continue as Guest</button>
-        </div>
-
-        <div class="welcome-foot">
-          <div class="foot-stat">
-            <div class="foot-stat-num" id="statQueue">12</div>
-            <div class="foot-stat-label">In Queue Today</div>
-          </div>
-          <div class="foot-divider"></div>
-          <div class="foot-stat">
-            <div class="foot-stat-num" id="statDocs">8</div>
-            <div class="foot-stat-label">Document Types</div>
-          </div>
-          <div class="foot-divider"></div>
-          <div class="foot-stat">
-            <div class="foot-stat-num">3</div>
-            <div class="foot-stat-label">Offices Online</div>
-          </div>
-        </div>
-      </div>
+      <button class="btn-help" onclick="openHelp()">
+        <span class="btn-help-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></svg>
+        </span>
+        How Can I Help You?
+      </button>
     </div>
   </section>
 
-  <!-- ============ MAIN MENU ============ -->
-  <section class="screen" data-screen="menu">
+  <!-- ============ ANNOUNCEMENT DETAIL MODAL ============ -->
+  <div class="modal" id="annDetailModal">
+    <div class="modal-card modal-card--xl" id="annDetailBody"></div>
+  </div>
+
+  <!-- ============ HELP DRAWER ============ -->
+  <div class="help-drawer" id="helpDrawer">
+    <div class="help-drawer-card">
+      <button class="help-drawer-close" onclick="closeHelp()">x</button>
+      <div class="help-drawer-head">
+        <h2>How can we help you today?</h2>
+        <p>Pick what you need. Most actions finish in under 2 minutes.</p>
+      </div>
+      <div class="help-options">
+        <button class="help-option" onclick="closeHelp(); showScreen('faq')">
+          <div class="help-option-icon" style="background:#8E24AA">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></svg>
+          </div>
+          <div class="help-option-body">
+            <div class="help-option-title">FAQs / Inquiries</div>
+            <div class="help-option-desc">Quick answers and ask staff for anything not listed</div>
+          </div>
+        </button>
+
+        <button class="help-option" onclick="closeHelp(); startDocFlow()">
+          <div class="help-option-icon" style="background:#0E5732">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8"/></svg>
+          </div>
+          <div class="help-option-body">
+            <div class="help-option-title">Document Request</div>
+            <div class="help-option-desc">TOR, COG, COE, Good Moral, Clearance, and more</div>
+          </div>
+          <div class="help-option-tag">Most Used</div>
+        </button>
+
+        <button class="help-option" onclick="closeHelp(); showScreen('queue')">
+          <div class="help-option-icon" style="background:#1E88E5">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="7" r="3"/><circle cx="9" cy="17" r="3"/><path d="M15 7h6M15 17h6M15 12h6"/></svg>
+          </div>
+          <div class="help-option-body">
+            <div class="help-option-title">Live Queue</div>
+            <div class="help-option-desc">Check your queue number and waiting time</div>
+          </div>
+        </button>
+
+        <button class="help-option" onclick="closeHelp(); showScreen('map')">
+          <div class="help-option-icon" style="background:#E53935">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          </div>
+          <div class="help-option-body">
+            <div class="help-option-title">Map</div>
+            <div class="help-option-desc">Find offices, classrooms, and facilities</div>
+          </div>
+        </button>
+
+        <button class="help-option" onclick="closeHelp(); showScreen('mission')">
+          <div class="help-option-icon" style="background:#00897B">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/></svg>
+          </div>
+          <div class="help-option-body">
+            <div class="help-option-title">About Campus</div>
+            <div class="help-option-desc">Mission, Vision, and university information</div>
+          </div>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ CAMPUS MAP (floor plan) ============ -->
+  <section class="screen" data-screen="map">
     <header class="topbar">
-      <button class="topbar-back" onclick="goWelcome()">
+      <button class="topbar-back" onclick="goHome()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
         Home
       </button>
       <div class="topbar-center">
-        <div class="topbar-greet" id="menuGreet">Welcome</div>
-        <div class="topbar-user" id="menuUser">Guest User</div>
-      </div>
-      <div class="topbar-clock" id="topbarClock">--:--</div>
-    </header>
-
-    <div class="menu-wrap">
-      <div class="menu-hero">
-        <h2 class="menu-title">How can we help you today?</h2>
-        <p class="menu-sub">Pick a service below. Most actions finish in under 2 minutes.</p>
-      </div>
-
-      <div class="menu-grid">
-        <button class="menu-card menu-card--primary" onclick="showScreen('docrequest')">
-          <div class="menu-card-icon" style="background:#0E5732">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
-          </div>
-          <div class="menu-card-body">
-            <div class="menu-card-tag">Most Used</div>
-            <h3 class="menu-card-title">Request a Document</h3>
-            <p class="menu-card-desc">TOR, COG, COE, Diploma copy, and more</p>
-          </div>
-          <div class="menu-card-arrow">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-          </div>
-        </button>
-
-        <button class="menu-card" onclick="showScreen('queue')">
-          <div class="menu-card-icon" style="background:#1E88E5">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="7" r="3"/><circle cx="9" cy="17" r="3"/><path d="M15 7h6M15 17h6M15 12h6"/></svg>
-          </div>
-          <div class="menu-card-body">
-            <h3 class="menu-card-title">Live Queue</h3>
-            <p class="menu-card-desc">Check your queue number and waiting time</p>
-          </div>
-          <div class="menu-card-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
-        </button>
-
-        <button class="menu-card" onclick="showScreen('map')">
-          <div class="menu-card-icon" style="background:#E53935">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-          </div>
-          <div class="menu-card-body">
-            <h3 class="menu-card-title">Campus Map</h3>
-            <p class="menu-card-desc">Find offices, classrooms, and facilities</p>
-          </div>
-          <div class="menu-card-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
-        </button>
-
-        <button class="menu-card" onclick="showScreen('announce')">
-          <div class="menu-card-icon" style="background:#FB8C00">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-          </div>
-          <div class="menu-card-body">
-            <div class="menu-card-tag menu-card-tag--hot">New</div>
-            <h3 class="menu-card-title">Announcements</h3>
-            <p class="menu-card-desc">University news, events, and updates</p>
-          </div>
-          <div class="menu-card-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
-        </button>
-
-        <button class="menu-card" onclick="showScreen('faq')">
-          <div class="menu-card-icon" style="background:#8E24AA">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></svg>
-          </div>
-          <div class="menu-card-body">
-            <h3 class="menu-card-title">Inquiry / FAQs</h3>
-            <p class="menu-card-desc">Quick answers to common questions</p>
-          </div>
-          <div class="menu-card-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
-        </button>
-
-        <button class="menu-card" onclick="showScreen('mission')">
-          <div class="menu-card-icon" style="background:#00897B">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/></svg>
-          </div>
-          <div class="menu-card-body">
-            <h3 class="menu-card-title">About CvSU</h3>
-            <p class="menu-card-desc">Mission, Vision, and university info</p>
-          </div>
-          <div class="menu-card-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
-        </button>
-      </div>
-
-      <div class="menu-ticker">
-        <div class="ticker-label">Now serving</div>
-        <div class="ticker-track" id="liveTicker">Loading queue data...</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============ CAMPUS MAP ============ -->
-  <section class="screen" data-screen="map">
-    <header class="topbar">
-      <button class="topbar-back" onclick="showScreen('menu')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-        Menu
-      </button>
-      <div class="topbar-center">
         <div class="topbar-greet">Campus Map</div>
-        <div class="topbar-user">CvSU Cavite City Campus</div>
+        <div class="topbar-user">CvSU Cavite City Main Building</div>
       </div>
       <div class="topbar-clock" id="topbarClockMap">--:--</div>
     </header>
@@ -233,7 +166,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
           </div>
           <h3>Tap any room</h3>
-          <p>Select a room on the floor plan to see what office or service is inside, the room number, and how to find it.</p>
+          <p>Select a room on the floor plan to see what office or service is inside.</p>
           <div class="map-quick">
             <div class="map-quick-title">Looking for a kiosk office?</div>
             <button class="map-quick-btn" onclick="focusRoom('registrar')">Registrar's Office</button>
@@ -245,31 +178,12 @@
     </div>
   </section>
 
-  <!-- ============ ANNOUNCEMENTS ============ -->
-  <section class="screen" data-screen="announce">
-    <header class="topbar">
-      <button class="topbar-back" onclick="showScreen('menu')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-        Menu
-      </button>
-      <div class="topbar-center">
-        <div class="topbar-greet">Announcements</div>
-        <div class="topbar-user">University news, events, and updates</div>
-      </div>
-      <div class="topbar-clock" id="topbarClockAnn">--:--</div>
-    </header>
-
-    <div class="page-wrap">
-      <div class="announce-grid" id="announceGrid"></div>
-    </div>
-  </section>
-
-  <!-- ============ FAQ ============ -->
+  <!-- ============ FAQ (with Ask Staff fallback) ============ -->
   <section class="screen" data-screen="faq">
     <header class="topbar">
-      <button class="topbar-back" onclick="showScreen('menu')">
+      <button class="topbar-back" onclick="goHome()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-        Menu
+        Home
       </button>
       <div class="topbar-center">
         <div class="topbar-greet">Frequently Asked Questions</div>
@@ -281,93 +195,314 @@
     <div class="page-wrap">
       <div class="faq-filters" id="faqFilters"></div>
       <div class="faq-list" id="faqList"></div>
+      <div class="faq-ask-cta">
+        <div class="faq-ask-cta-text">
+          <h3>Didn't find your question?</h3>
+          <p>Send it directly to the office staff and get a reply through email.</p>
+        </div>
+        <button class="btn btn--primary btn--lg" onclick="showScreen('askstaff')">
+          Ask Staff Directly
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+      </div>
     </div>
   </section>
 
-  <!-- ============ DOCUMENT REQUEST ============ -->
-  <section class="screen" data-screen="docrequest">
+  <!-- ============ ASK STAFF ============ -->
+  <section class="screen" data-screen="askstaff">
     <header class="topbar">
-      <button class="topbar-back" onclick="docRequestBack()">
+      <button class="topbar-back" onclick="showScreen('faq')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Back to FAQs
+      </button>
+      <div class="topbar-center">
+        <div class="topbar-greet">Ask Staff Directly</div>
+        <div class="topbar-user">Your question will be answered through email</div>
+      </div>
+      <div class="topbar-clock" id="topbarClockAsk">--:--</div>
+    </header>
+
+    <div class="page-wrap ask-wrap">
+      <div class="ask-card">
+        <h2 class="ask-title">What's your question?</h2>
+        <p class="ask-sub">Type your concern below. A staff member will reply through your Gmail.</p>
+
+        <label class="ask-field">
+          <span>Question</span>
+          <textarea id="askQuestion" rows="5" placeholder="Example: How can I request an authenticated TOR for an embassy?"></textarea>
+        </label>
+
+        <label class="ask-field">
+          <span>Which office should answer this?</span>
+          <div class="ask-office-grid" id="askOfficeGrid"></div>
+        </label>
+
+        <label class="ask-field">
+          <span>Your Name (optional)</span>
+          <input type="text" id="askName" placeholder="e.g. Juan Dela Cruz">
+        </label>
+
+        <label class="ask-field">
+          <span>Your Gmail (so staff can reply)</span>
+          <input type="email" id="askEmail" placeholder="e.g. juan.dlc@cvsu.edu.ph">
+        </label>
+
+        <div class="form-actions">
+          <button class="btn btn--ghost btn--lg" onclick="showScreen('faq')">Cancel</button>
+          <button class="btn btn--primary btn--lg" onclick="submitInquiry()">Submit Question</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ DOCUMENT REQUEST: ID GATE ============ -->
+  <section class="screen" data-screen="idgate">
+    <header class="topbar">
+      <button class="topbar-back" onclick="goHome()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Home
+      </button>
+      <div class="topbar-center">
+        <div class="topbar-greet">Document Request</div>
+        <div class="topbar-user">Step 1 of 4 . Identify yourself</div>
+      </div>
+      <div class="topbar-clock" id="topbarClockIdGate">--:--</div>
+    </header>
+
+    <div class="page-wrap idgate-wrap">
+      <div class="idgate-card">
+        <h2 class="step-title">Scan your Student ID QR Code</h2>
+        <p class="step-sub">or type your Student Number manually below.</p>
+
+        <div class="qr-scanner-mock idgate-scanner">
+          <div class="qr-scan-frame">
+            <div class="qr-scan-corner qr-scan-corner--tl"></div>
+            <div class="qr-scan-corner qr-scan-corner--tr"></div>
+            <div class="qr-scan-corner qr-scan-corner--bl"></div>
+            <div class="qr-scan-corner qr-scan-corner--br"></div>
+            <div class="qr-scan-line"></div>
+          </div>
+        </div>
+
+        <div class="idgate-form">
+          <input type="text" class="qr-input" id="idgateInput" placeholder="Enter Student Number (e.g. 202301234)">
+          <button class="btn btn--primary btn--lg btn--block" onclick="submitIdGate()">Continue</button>
+        </div>
+
+        <div class="idgate-or">
+          <span>Don't have a Student ID QR Code yet?</span>
+        </div>
+        <button class="btn btn--ghost btn--lg btn--block" onclick="showScreen('qrgen')">
+          Let's Generate One
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ QR GENERATE FORM ============ -->
+  <section class="screen" data-screen="qrgen">
+    <header class="topbar">
+      <button class="topbar-back" onclick="showScreen('idgate')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Back
+      </button>
+      <div class="topbar-center">
+        <div class="topbar-greet">Generate Student QR Code</div>
+        <div class="topbar-user">Create your reusable kiosk QR</div>
+      </div>
+      <div class="topbar-clock" id="topbarClockQrGen">--:--</div>
+    </header>
+
+    <div class="page-wrap qrgen-wrap">
+      <div class="qrgen-card">
+        <h2 class="step-title">Enter your details</h2>
+        <p class="step-sub">We will generate a unique QR code linked to your Student Number.</p>
+
+        <label class="ask-field">
+          <span>Student Number</span>
+          <input type="text" id="qrgenStudentId" placeholder="e.g. 202301234">
+        </label>
+
+        <label class="ask-field">
+          <span>Full Name</span>
+          <input type="text" id="qrgenStudentName" placeholder="e.g. Juan Dela Cruz">
+        </label>
+
+        <div class="form-actions">
+          <button class="btn btn--ghost btn--lg" onclick="showScreen('idgate')">Cancel</button>
+          <button class="btn btn--primary btn--lg" onclick="generateQr()">Generate QR Code</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ QR RESULT (with print / photo options) ============ -->
+  <section class="screen" data-screen="qrresult">
+    <header class="topbar">
+      <button class="topbar-back" onclick="goHome()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Home
+      </button>
+      <div class="topbar-center">
+        <div class="topbar-greet">Your Student QR Code</div>
+        <div class="topbar-user">Save this for future transactions</div>
+      </div>
+      <div class="topbar-clock" id="topbarClockQrResult">--:--</div>
+    </header>
+
+    <div class="page-wrap qrresult-wrap">
+      <div class="qrresult-card" id="qrResultCard"></div>
+      <div class="form-actions">
+        <button class="btn btn--ghost btn--lg" onclick="printQrCard()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/></svg>
+          Print
+        </button>
+        <button class="btn btn--primary btn--lg" onclick="continueAfterQr()">Continue to Document Request</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ DOCUMENT REQUEST: MULTI-DOC SELECT ============ -->
+  <section class="screen" data-screen="docselect">
+    <header class="topbar">
+      <button class="topbar-back" onclick="showScreen('idgate')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
         Back
       </button>
       <div class="topbar-center">
         <div class="topbar-greet">Document Request</div>
-        <div class="topbar-user" id="docStepLabel">Step 1 of 4 . Select Office</div>
+        <div class="topbar-user" id="docStepLabel">Step 2 of 4 . What document/s do you need?</div>
       </div>
-      <div class="topbar-clock" id="topbarClockDoc">--:--</div>
+      <div class="topbar-clock" id="topbarClockDocSel">--:--</div>
     </header>
 
     <div class="page-wrap">
       <div class="stepper" id="docStepper">
-        <div class="step-item is-active"><span class="step-dot">1</span><span class="step-name">Office</span></div>
+        <div class="step-item is-done"><span class="step-dot">1</span><span class="step-name">Identify</span></div>
         <div class="step-line"></div>
-        <div class="step-item"><span class="step-dot">2</span><span class="step-name">Document</span></div>
+        <div class="step-item is-active"><span class="step-dot">2</span><span class="step-name">Documents</span></div>
         <div class="step-line"></div>
-        <div class="step-item"><span class="step-dot">3</span><span class="step-name">Review</span></div>
+        <div class="step-item"><span class="step-dot">3</span><span class="step-name">Schedule</span></div>
         <div class="step-line"></div>
         <div class="step-item"><span class="step-dot">4</span><span class="step-name">Payment</span></div>
       </div>
 
-      <!-- Step 1: Office -->
-      <div class="doc-step" data-step="1">
-        <h2 class="step-title">Where do you need to go?</h2>
-        <p class="step-sub">Pick the office that handles your request.</p>
-        <div class="office-grid" id="officeGrid"></div>
-      </div>
+      <h2 class="step-title">What document/s do you need?</h2>
+      <p class="step-sub">You can select multiple documents in one request. Each has its own fee and processing time.</p>
 
-      <!-- Step 2: Document -->
-      <div class="doc-step" data-step="2" style="display:none">
-        <h2 class="step-title">Which document do you need?</h2>
-        <p class="step-sub">Fees and processing days are shown on each card.</p>
-        <div class="docs-grid" id="docsGrid"></div>
-      </div>
+      <div class="docselect-grid" id="docselectGrid"></div>
 
-      <!-- Step 3: Review -->
-      <div class="doc-step" data-step="3" style="display:none">
-        <h2 class="step-title">Review your request</h2>
-        <p class="step-sub">Make sure everything looks correct before continuing.</p>
-        <div class="review-card" id="reviewCard"></div>
-        <div class="form-actions">
-          <button class="btn btn--ghost btn--lg" onclick="goDocStep(2)">Edit</button>
-          <button class="btn btn--primary btn--lg" onclick="goDocStep(4)">Continue to Payment</button>
+      <div class="docselect-foot" id="docselectFoot" hidden>
+        <div class="docselect-summary">
+          <span id="docselectCount">0 selected</span>
+          <span class="docselect-total" id="docselectTotal">PHP 0.00</span>
         </div>
+        <button class="btn btn--primary btn--lg" onclick="goToSchedule()">Next: Pick Schedule</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ DOCUMENT REQUEST: SCHEDULE ============ -->
+  <section class="screen" data-screen="schedule">
+    <header class="topbar">
+      <button class="topbar-back" onclick="showScreen('docselect')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Back
+      </button>
+      <div class="topbar-center">
+        <div class="topbar-greet">Document Request</div>
+        <div class="topbar-user">Step 3 of 4 . Pick claim schedule</div>
+      </div>
+      <div class="topbar-clock" id="topbarClockSched">--:--</div>
+    </header>
+
+    <div class="page-wrap">
+      <div class="stepper">
+        <div class="step-item is-done"><span class="step-dot">1</span><span class="step-name">Identify</span></div>
+        <div class="step-line"></div>
+        <div class="step-item is-done"><span class="step-dot">2</span><span class="step-name">Documents</span></div>
+        <div class="step-line"></div>
+        <div class="step-item is-active"><span class="step-dot">3</span><span class="step-name">Schedule</span></div>
+        <div class="step-line"></div>
+        <div class="step-item"><span class="step-dot">4</span><span class="step-name">Payment</span></div>
       </div>
 
-      <!-- Step 4: Payment -->
-      <div class="doc-step" data-step="4" style="display:none">
-        <h2 class="step-title">How would you like to pay?</h2>
-        <p class="step-sub">You can pay now via e-wallet or pay at the Cashier.</p>
-        <div class="pay-grid">
-          <button class="pay-card" onclick="selectPay('ewallet')">
-            <div class="pay-icon" style="background:#0E5732">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 14h3M14 18h3v3M21 18v3"/></svg>
-            </div>
-            <div class="pay-body">
-              <h3>E-Wallet (QR Ph)</h3>
-              <p>GCash, Maya, BPI, GrabPay. Scan and pay now.</p>
-            </div>
-            <div class="pay-tag pay-tag--ok">Instant</div>
-          </button>
-          <button class="pay-card" onclick="selectPay('cash')">
-            <div class="pay-icon" style="background:#FB8C00">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/></svg>
-            </div>
-            <div class="pay-body">
-              <h3>Pay at Cashier</h3>
-              <p>Visit the Cashier's window with your reference number.</p>
-            </div>
-            <div class="pay-tag">Manual</div>
-          </button>
+      <h2 class="step-title">What date and time do you prefer to claim your documents?</h2>
+      <p class="step-sub">Pick from available slots. Each slot can hold a limited number of releases per hour.</p>
+
+      <div class="schedule-wrap">
+        <div class="schedule-calendar" id="scheduleCalendar"></div>
+        <div class="schedule-slots-wrap">
+          <h3 class="schedule-slots-title" id="schedSlotsTitle">Pick a time slot</h3>
+          <div class="schedule-slots" id="scheduleSlots"></div>
+          <div class="schedule-actions">
+            <button class="btn btn--primary btn--lg" id="schedNextBtn" onclick="goToPayment()" disabled>Next: Choose Payment</button>
+          </div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- ============ QR PAYMENT MODAL (inline screen) ============ -->
+  <!-- ============ DOCUMENT REQUEST: PAYMENT ============ -->
+  <section class="screen" data-screen="payment">
+    <header class="topbar">
+      <button class="topbar-back" onclick="showScreen('schedule')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Back
+      </button>
+      <div class="topbar-center">
+        <div class="topbar-greet">Document Request</div>
+        <div class="topbar-user">Step 4 of 4 . Choose payment method</div>
+      </div>
+      <div class="topbar-clock" id="topbarClockPay">--:--</div>
+    </header>
+
+    <div class="page-wrap">
+      <div class="stepper">
+        <div class="step-item is-done"><span class="step-dot">1</span><span class="step-name">Identify</span></div>
+        <div class="step-line"></div>
+        <div class="step-item is-done"><span class="step-dot">2</span><span class="step-name">Documents</span></div>
+        <div class="step-line"></div>
+        <div class="step-item is-done"><span class="step-dot">3</span><span class="step-name">Schedule</span></div>
+        <div class="step-line"></div>
+        <div class="step-item is-active"><span class="step-dot">4</span><span class="step-name">Payment</span></div>
+      </div>
+
+      <div class="review-card" id="paymentReviewCard"></div>
+
+      <h2 class="step-title">How would you like to pay?</h2>
+      <p class="step-sub">Pay now with an e-wallet, or pay at the Cashier when you claim.</p>
+
+      <div class="pay-grid">
+        <button class="pay-card" onclick="selectPay('ewallet')">
+          <div class="pay-icon" style="background:#0E5732">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 14h3M14 18h3v3M21 18v3"/></svg>
+          </div>
+          <div class="pay-body">
+            <h3>Cashless (QR Ph)</h3>
+            <p>GCash, Maya, BPI, GrabPay. Scan and pay now.</p>
+          </div>
+          <div class="pay-tag pay-tag--ok">Instant</div>
+        </button>
+        <button class="pay-card" onclick="selectPay('cash')">
+          <div class="pay-icon" style="background:#FB8C00">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/></svg>
+          </div>
+          <div class="pay-body">
+            <h3>Cash at Cashier</h3>
+            <p>Please prepare the exact amount and proceed to the cashier.</p>
+          </div>
+          <div class="pay-tag">Manual</div>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ QR PAYMENT ============ -->
   <section class="screen" data-screen="qrpay">
     <header class="topbar">
-      <button class="topbar-back" onclick="goDocStep(4)">
+      <button class="topbar-back" onclick="showScreen('payment')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
         Cancel
       </button>
@@ -394,12 +529,12 @@
   <!-- ============ RECEIPT ============ -->
   <section class="screen" data-screen="receipt">
     <header class="topbar">
-      <button class="topbar-back" onclick="showScreen('menu')">
+      <button class="topbar-back" onclick="showScreen('thankyou')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-        Done
+        Continue
       </button>
       <div class="topbar-center">
-        <div class="topbar-greet">Request Confirmed</div>
+        <div class="topbar-greet">Receipt</div>
         <div class="topbar-user">Save your reference number</div>
       </div>
       <div class="topbar-clock" id="topbarClockRcp">--:--</div>
@@ -412,17 +547,31 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
           Print Receipt
         </button>
-        <button class="btn btn--primary btn--lg" onclick="showScreen('menu')">Back to Menu</button>
+        <button class="btn btn--primary btn--lg" onclick="showScreen('thankyou')">Done</button>
       </div>
+    </div>
+  </section>
+
+  <!-- ============ THANK YOU ============ -->
+  <section class="screen" data-screen="thankyou">
+    <div class="thankyou-wrap">
+      <div class="thankyou-check">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>
+      </div>
+      <h1 class="thankyou-title">Thank you!</h1>
+      <p class="thankyou-sub" id="thankYouSub">Your request has been submitted successfully.</p>
+      <div class="thankyou-ref" id="thankYouRef"></div>
+      <p class="thankyou-countdown">Returning to main screen in <span id="thankYouCount">10</span> seconds...</p>
+      <button class="btn btn--ghost btn--lg" onclick="goHome()">Return Now</button>
     </div>
   </section>
 
   <!-- ============ QUEUE STATUS ============ -->
   <section class="screen" data-screen="queue">
     <header class="topbar">
-      <button class="topbar-back" onclick="showScreen('menu')">
+      <button class="topbar-back" onclick="goHome()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-        Menu
+        Home
       </button>
       <div class="topbar-center">
         <div class="topbar-greet">Live Queue</div>
@@ -430,7 +579,6 @@
       </div>
       <div class="topbar-clock" id="topbarClockQ">--:--</div>
     </header>
-
     <div class="page-wrap">
       <div class="queue-grid" id="queueGrid"></div>
     </div>
@@ -439,9 +587,9 @@
   <!-- ============ MISSION / VISION ============ -->
   <section class="screen" data-screen="mission">
     <header class="topbar">
-      <button class="topbar-back" onclick="showScreen('menu')">
+      <button class="topbar-back" onclick="goHome()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-        Menu
+        Home
       </button>
       <div class="topbar-center">
         <div class="topbar-greet">About CvSU</div>
@@ -477,41 +625,6 @@
       </div>
     </div>
   </section>
-
-  <!-- ============ LOGIN MODAL ============ -->
-  <div class="modal" id="loginModal">
-    <div class="modal-card">
-      <div class="modal-head">
-        <h3>Scan your Student ID</h3>
-        <button class="modal-close" onclick="closeLogin()">x</button>
-      </div>
-      <div class="modal-body">
-        <div class="qr-scanner-mock">
-          <div class="qr-scan-frame">
-            <div class="qr-scan-corner qr-scan-corner--tl"></div>
-            <div class="qr-scan-corner qr-scan-corner--tr"></div>
-            <div class="qr-scan-corner qr-scan-corner--bl"></div>
-            <div class="qr-scan-corner qr-scan-corner--br"></div>
-            <div class="qr-scan-line"></div>
-            <svg viewBox="0 0 100 100" class="qr-icon">
-              <rect x="10" y="10" width="25" height="25" rx="2" fill="none" stroke="rgba(255,210,77,0.5)" stroke-width="3"/>
-              <rect x="65" y="10" width="25" height="25" rx="2" fill="none" stroke="rgba(255,210,77,0.5)" stroke-width="3"/>
-              <rect x="10" y="65" width="25" height="25" rx="2" fill="none" stroke="rgba(255,210,77,0.5)" stroke-width="3"/>
-            </svg>
-          </div>
-          <div class="qr-or">or enter manually</div>
-          <input type="text" class="qr-input" id="loginIdInput" placeholder="Enter Student ID, e.g. 202301234">
-          <button class="btn btn--primary btn--lg btn--block" onclick="manualLogin()">Continue</button>
-          <button class="btn btn--ghost btn--block" onclick="demoLogin()">Use Demo Student (RM Agedio)</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ============ BUILDING DETAIL MODAL ============ -->
-  <div class="modal" id="bldgModal">
-    <div class="modal-card" id="bldgCard"></div>
-  </div>
 
   <!-- ============ TOAST ============ -->
   <div class="toast" id="toast"></div>

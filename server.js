@@ -154,15 +154,25 @@ function dateColumn(col) {
   return USE_PG ? `to_char(${col}, 'YYYY-MM-DD')` : `date(${col})`;
 }
 
-// ============ PUBLIC: submit request ============
+// ============ PUBLIC: submit request (supports multi-document) ============
 app.post('/api/public/requests', async (req, res) => {
-  const { student_id, student_name, office_id, document_id, payment_method } = req.body || {};
-  if (!office_id || !document_id || !student_name || !payment_method) {
+  const { student_id, student_name, office_id, document_ids, payment_method, scheduled_at } = req.body || {};
+  // Support legacy single-document field
+  const singleDocId = req.body?.document_id;
+  const docIds = Array.isArray(document_ids) && document_ids.length ? document_ids : (singleDocId ? [singleDocId] : null);
+
+  if (!office_id || !docIds || !student_name || !payment_method) {
     return res.status(400).json({ error: 'Missing fields' });
   }
   const office = await get('SELECT * FROM offices WHERE id = ?', [office_id]);
-  const doc = await get('SELECT * FROM documents WHERE id = ?', [document_id]);
-  if (!office || !doc) return res.status(400).json({ error: 'Invalid office or document' });
+  if (!office) return res.status(400).json({ error: 'Invalid office' });
+
+  const docs = [];
+  for (const id of docIds) {
+    const d = await get('SELECT * FROM documents WHERE id = ?', [id]);
+    if (!d) return res.status(400).json({ error: `Invalid document: ${id}` });
+    docs.push(d);
+  }
 
   const now = new Date();
   const datePart = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
@@ -174,18 +184,77 @@ app.post('/api/public/requests', async (req, res) => {
   const nextQueue = (qState?.last_issued || 0) + 1;
   await run('UPDATE queue_state SET last_issued = ? WHERE office_id = ?', [nextQueue, office_id]);
 
-  const releaseDate = addBusinessDays(now, doc.processing_days);
+  const totalFee = docs.reduce((s, d) => s + Number(d.fee), 0);
+  const maxDays = Math.max(...docs.map(d => d.processing_days));
+  const defaultRelease = addBusinessDays(now, maxDays);
+  const scheduledTimestamp = scheduled_at ? new Date(scheduled_at) : defaultRelease;
   const paid = payment_method === 'ewallet' ? 1 : 0;
   const status = paid ? 'processing' : 'pending';
 
+  const summaryDocName = docs.length === 1 ? docs[0].name : `${docs.length} documents: ${docs.map(d => d.name).join(', ')}`;
+  const firstDocId = docs[0].id;
+
   await run(
-    `INSERT INTO requests (ref_number, queue_number, student_id, student_name, office_id, document_id, document_name, fee, status, payment_method, paid, release_date)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [refNumber, nextQueue, student_id || null, student_name, office_id, document_id, doc.name, doc.fee, status, payment_method, paid, releaseDate.toISOString().slice(0, 10)]
+    `INSERT INTO requests (ref_number, queue_number, student_id, student_name, office_id, document_id, document_name, fee, total_fee, status, payment_method, paid, release_date, scheduled_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [refNumber, nextQueue, student_id || null, student_name, office_id, firstDocId, summaryDocName, totalFee, totalFee, status, payment_method, paid, scheduledTimestamp.toISOString().slice(0, 10), scheduledTimestamp.toISOString()]
   );
 
   const created = await get('SELECT * FROM requests WHERE ref_number = ?', [refNumber]);
-  res.json({ request: created });
+  for (const d of docs) {
+    await run('INSERT INTO request_items (request_id, document_id, document_name, fee) VALUES (?, ?, ?, ?)', [created.id, d.id, d.name, d.fee]);
+  }
+  const items = await query('SELECT * FROM request_items WHERE request_id = ?', [created.id]);
+  res.json({ request: { ...created, items } });
+});
+
+// ============ PUBLIC: scheduling availability ============
+app.get('/api/public/schedule-availability', async (req, res) => {
+  const { office_id, date } = req.query;
+  if (!office_id || !date) return res.status(400).json({ error: 'office_id and date required' });
+  const cap = await get('SELECT * FROM office_capacity WHERE office_id = ?', [office_id]) || { per_hour: 20, hours_start: '08:00', hours_end: '17:00' };
+  const startH = parseInt(cap.hours_start.split(':')[0]);
+  const endH = parseInt(cap.hours_end.split(':')[0]);
+  const slots = [];
+  for (let h = startH; h < endH; h++) {
+    const slotStart = `${date}T${String(h).padStart(2,'0')}:00:00`;
+    const slotEnd = `${date}T${String(h+1).padStart(2,'0')}:00:00`;
+    const booked = await get(
+      `SELECT COUNT(*) AS c FROM requests WHERE office_id = ? AND scheduled_at >= ? AND scheduled_at < ? AND status IN (?, ?, ?, ?)`,
+      [office_id, slotStart, slotEnd, 'pending', 'processing', 'ready', 'released']
+    );
+    slots.push({ start: slotStart, end: slotEnd, hour: h, capacity: cap.per_hour, booked: parseInt(booked.c), available: cap.per_hour - parseInt(booked.c) });
+  }
+  res.json({ office_id, date, capacity_per_hour: cap.per_hour, slots });
+});
+
+// ============ PUBLIC: inquiries ============
+app.post('/api/public/inquiries', async (req, res) => {
+  const { question, student_email, student_name, student_id, office_id } = req.body || {};
+  if (!question || !question.trim()) return res.status(400).json({ error: 'Question required' });
+  await run('INSERT INTO inquiries (question, student_email, student_name, student_id, office_id, status) VALUES (?, ?, ?, ?, ?, ?)',
+    [question.trim(), student_email || null, student_name || null, student_id || null, office_id || null, 'pending']);
+  res.json({ ok: true });
+});
+
+// ============ PUBLIC: generate student QR ============
+app.post('/api/public/qr-generate', async (req, res) => {
+  const { student_id, student_name } = req.body || {};
+  if (!student_id || !student_name) return res.status(400).json({ error: 'Student ID and name required' });
+  const code = 'CVSU-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+  await run('INSERT INTO student_qrs (qr_code, student_id, student_name) VALUES (?, ?, ?)', [code, student_id, student_name]);
+  // Also upsert into students table if not yet present
+  const existing = await get('SELECT id FROM students WHERE id = ?', [student_id]);
+  if (!existing) {
+    await run('INSERT INTO students (id, name) VALUES (?, ?)', [student_id, student_name]);
+  }
+  res.json({ qr_code: code, student_id, student_name });
+});
+
+app.get('/api/public/qr/:code', async (req, res) => {
+  const row = await get('SELECT * FROM student_qrs WHERE qr_code = ?', [req.params.code]);
+  if (!row) return res.status(404).json({ error: 'QR not found' });
+  res.json({ qr: row });
 });
 
 app.post('/api/public/requests/:ref/pay', async (req, res) => {
@@ -225,6 +294,10 @@ app.get('/api/admin/requests', requireAdmin, async (req, res) => {
   }
   sql += ' ORDER BY created_at DESC';
   const rows = await query(sql, params);
+  // Attach items for each request
+  for (const r of rows) {
+    r.items = await query('SELECT * FROM request_items WHERE request_id = ?', [r.id]);
+  }
   res.json({ requests: rows });
 });
 
@@ -433,6 +506,84 @@ app.delete('/api/admin/faqs/:id', requireAdmin, async (req, res) => {
   }
   await run('DELETE FROM faqs WHERE id = ?', [f.id]);
   res.json({ ok: true });
+});
+
+// ============ ADMIN: inquiries ============
+app.get('/api/admin/inquiries', requireAdmin, async (req, res) => {
+  let sql = 'SELECT * FROM inquiries WHERE 1=1';
+  const params = [];
+  if (req.user.role === 'office_admin') {
+    // Office admin sees inquiries tagged to their office OR untagged (general inquiries)
+    sql += ' AND (office_id = ? OR office_id IS NULL)';
+    params.push(req.user.office_id);
+  }
+  const { status } = req.query;
+  if (status) { sql += ' AND status = ?'; params.push(status); }
+  sql += ' ORDER BY status ASC, created_at DESC';
+  const rows = await query(sql, params);
+  res.json({ inquiries: rows });
+});
+
+app.patch('/api/admin/inquiries/:id', requireAdmin, async (req, res) => {
+  const inq = await get('SELECT * FROM inquiries WHERE id = ?', [req.params.id]);
+  if (!inq) return res.status(404).json({ error: 'Not found' });
+  if (req.user.role === 'office_admin' && inq.office_id && inq.office_id !== req.user.office_id) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  const { reply, status, office_id } = req.body || {};
+  const updates = []; const params = [];
+  if (typeof reply !== 'undefined') {
+    updates.push('reply = ?'); params.push(reply);
+    updates.push('replied_by = ?'); params.push(req.user.name);
+    updates.push(`replied_at = ${USE_PG ? 'CURRENT_TIMESTAMP' : "datetime('now')"}`);
+    updates.push('status = ?'); params.push('replied');
+  } else if (status) {
+    updates.push('status = ?'); params.push(status);
+  }
+  if (typeof office_id !== 'undefined' && req.user.role === 'system_admin') {
+    updates.push('office_id = ?'); params.push(office_id || null);
+  }
+  if (!updates.length) return res.json({ inquiry: inq });
+  params.push(inq.id);
+  await run(`UPDATE inquiries SET ${updates.join(', ')} WHERE id = ?`, params);
+  const updated = await get('SELECT * FROM inquiries WHERE id = ?', [inq.id]);
+  res.json({ inquiry: updated });
+});
+
+app.delete('/api/admin/inquiries/:id', requireAdmin, async (req, res) => {
+  const inq = await get('SELECT * FROM inquiries WHERE id = ?', [req.params.id]);
+  if (!inq) return res.status(404).json({ error: 'Not found' });
+  if (req.user.role === 'office_admin' && inq.office_id && inq.office_id !== req.user.office_id) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  await run('DELETE FROM inquiries WHERE id = ?', [inq.id]);
+  res.json({ ok: true });
+});
+
+// ============ ADMIN: office capacity ============
+app.get('/api/admin/capacity', requireAdmin, async (req, res) => {
+  const rows = await query('SELECT * FROM office_capacity');
+  res.json({ capacity: rows });
+});
+
+app.patch('/api/admin/capacity/:office_id', requireSystemAdmin, async (req, res) => {
+  const { per_hour, hours_start, hours_end } = req.body || {};
+  const existing = await get('SELECT * FROM office_capacity WHERE office_id = ?', [req.params.office_id]);
+  if (!existing) {
+    await run('INSERT INTO office_capacity (office_id, per_hour, hours_start, hours_end) VALUES (?, ?, ?, ?)',
+      [req.params.office_id, per_hour || 20, hours_start || '08:00', hours_end || '17:00']);
+  } else {
+    const updates = []; const params = [];
+    if (typeof per_hour !== 'undefined') { updates.push('per_hour = ?'); params.push(per_hour); }
+    if (typeof hours_start !== 'undefined') { updates.push('hours_start = ?'); params.push(hours_start); }
+    if (typeof hours_end !== 'undefined') { updates.push('hours_end = ?'); params.push(hours_end); }
+    if (updates.length) {
+      params.push(req.params.office_id);
+      await run(`UPDATE office_capacity SET ${updates.join(', ')} WHERE office_id = ?`, params);
+    }
+  }
+  const updated = await get('SELECT * FROM office_capacity WHERE office_id = ?', [req.params.office_id]);
+  res.json({ capacity: updated });
 });
 
 // ============ FLOOR PLAN ============
